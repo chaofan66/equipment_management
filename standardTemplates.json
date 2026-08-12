@@ -1,0 +1,1580 @@
+{
+  "100101": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0,
+          "updatedAt": "2026-08-08"
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "100102": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "100103": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        },
+        "2026-08": {
+          "status": "active",
+          "items": [
+            {
+              "category": "设备外表",
+              "content": "清扫起重机外表及驾驶室内外",
+              "standard": "整齐清洁",
+              "seq": 1
+            },
+            {
+              "category": "起升机构",
+              "content": "检查起重装置，钢丝绳卷挠系统的零部件",
+              "standard": "消除缺陷，达到起重机械安全规程的要求",
+              "seq": 2
+            },
+            {
+              "category": "起升机构",
+              "content": "检查减速装置、驱动装置的零部件",
+              "standard": "消除松动现象，使传动平稳、运转正常",
+              "seq": 3
+            },
+            {
+              "category": "起升机构",
+              "content": "检查制动装置，调整间隙",
+              "standard": "制动灵敏，可靠",
+              "seq": 4
+            },
+            {
+              "category": "起升机构",
+              "content": "检查安全装置，动作安全可靠",
+              "standard": "安全可靠",
+              "seq": 5
+            },
+            {
+              "category": "起升机构",
+              "content": "检查起重量限制器，校正载荷重量指示值",
+              "standard": "正确可靠",
+              "seq": 6
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车车轮装置及轨道",
+              "standard": "行走平稳可靠",
+              "seq": 7
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车运行驱动装置，消除松动",
+              "standard": "传动平稳运转正常",
+              "seq": 8
+            },
+            {
+              "category": "行走机构",
+              "content": "检查并调整制动装置",
+              "standard": "制动灵敏、可靠",
+              "seq": 9
+            },
+            {
+              "category": "行走机构",
+              "content": "检查安全装置，并消除缺陷",
+              "standard": "安全可靠",
+              "seq": 10
+            },
+            {
+              "category": "设备润滑",
+              "content": "检查齿轮减速器润滑油，油质达到润滑要求",
+              "standard": "油量，油质达到润滑要求",
+              "seq": 11
+            },
+            {
+              "category": "设备润滑",
+              "content": "对轴承座，制动架，联轴器、滑轮组等加注润滑脂",
+              "standard": "润滑正常",
+              "seq": 12
+            },
+            {
+              "category": "电气系统",
+              "content": "擦拭电动机及电器箱",
+              "standard": "内外清洁，检查有无异常",
+              "seq": 13
+            },
+            {
+              "category": "限位装置",
+              "content": "检查限位装置与接地是否安全可靠",
+              "standard": "安全可靠",
+              "seq": 14
+            }
+          ],
+          "labels": {
+            "item": "项目",
+            "content": "工序内容",
+            "standard": "合格标准"
+          },
+          "safetyNotice": {
+            "title": "安全告知及注意事项",
+            "content": "1.保养前，要确认设备处于停电状态、停机工位。\n2.保养前，要确认劳保护具佩戴齐全，工器具完好、合格。\n3.保养中，要合理使用工器具，按保养工艺要求操作，做好互联互保，防止发生安全事故。\n4.保养后，要清理现场，保持清洁；废旧零部件按要求回收；危废物资按要求收集、处置。\n5.保养后，要试车正常，做好交接。"
+          },
+          "name": "一级保养标准",
+          "fileName": "一级保养计划标准.xlsx",
+          "stdCode": "10010303",
+          "version": 1,
+          "updatedAt": "2026-08-10"
+        },
+        "2026-09": {
+          "status": "active",
+          "items": [
+            {
+              "category": "设备外表",
+              "content": "清扫起重机外表及驾驶室内外",
+              "standard": "整齐清洁",
+              "seq": 1
+            },
+            {
+              "category": "起升机构",
+              "content": "检查起重装置，钢丝绳卷挠系统的零部件",
+              "standard": "消除缺陷，达到起重机械安全规程的要求",
+              "seq": 2
+            },
+            {
+              "category": "起升机构",
+              "content": "检查减速装置、驱动装置的零部件",
+              "standard": "消除松动现象，使传动平稳、运转正常",
+              "seq": 3
+            },
+            {
+              "category": "起升机构",
+              "content": "检查制动装置，调整间隙",
+              "standard": "制动灵敏，可靠",
+              "seq": 4
+            },
+            {
+              "category": "起升机构",
+              "content": "检查安全装置，动作安全可靠",
+              "standard": "安全可靠",
+              "seq": 5
+            },
+            {
+              "category": "起升机构",
+              "content": "检查起重量限制器，校正载荷重量指示值",
+              "standard": "正确可靠",
+              "seq": 6
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车车轮装置及轨道",
+              "standard": "行走平稳可靠",
+              "seq": 7
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车运行驱动装置，消除松动",
+              "standard": "传动平稳运转正常",
+              "seq": 8
+            },
+            {
+              "category": "行走机构",
+              "content": "检查并调整制动装置",
+              "standard": "制动灵敏、可靠",
+              "seq": 9
+            },
+            {
+              "category": "行走机构",
+              "content": "检查安全装置，并消除缺陷",
+              "standard": "安全可靠",
+              "seq": 10
+            },
+            {
+              "category": "设备润滑",
+              "content": "检查齿轮减速器润滑油，油质达到润滑要求",
+              "standard": "油量，油质达到润滑要求",
+              "seq": 11
+            },
+            {
+              "category": "设备润滑",
+              "content": "对轴承座，制动架，联轴器、滑轮组等加注润滑脂",
+              "standard": "润滑正常",
+              "seq": 12
+            },
+            {
+              "category": "电气系统",
+              "content": "擦拭电动机及电器箱",
+              "standard": "内外清洁，检查有无异常",
+              "seq": 13
+            },
+            {
+              "category": "限位装置",
+              "content": "检查限位装置与接地是否安全可靠",
+              "standard": "安全可靠",
+              "seq": 14
+            }
+          ],
+          "labels": {
+            "item": "项目",
+            "content": "工序内容",
+            "standard": "合格标准"
+          },
+          "safetyNotice": {
+            "title": "安全告知及注意事项",
+            "content": "1.保养前，要确认设备处于停电状态、停机工位。\n2.保养前，要确认劳保护具佩戴齐全，工器具完好、合格。\n3.保养中，要合理使用工器具，按保养工艺要求操作，做好互联互保，防止发生安全事故。\n4.保养后，要清理现场，保持清洁；废旧零部件按要求回收；危废物资按要求收集、处置。\n5.保养后，要试车正常，做好交接。"
+          },
+          "name": "一级保养标准",
+          "fileName": "一级保养计划标准.xlsx",
+          "stdCode": "10010303",
+          "version": 1,
+          "updatedAt": "2026-08-10"
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "100104": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "100105": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020101": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "2026-08": {
+          "status": "active",
+          "items": [
+            {
+              "project": "电源检查",
+              "content": "电源指示灯正常，电源开启正常",
+              "seq": 1
+            },
+            {
+              "project": "控制系统",
+              "content": "控制系统正常，操作杆灵敏可靠",
+              "seq": 2
+            },
+            {
+              "project": "钢丝绳",
+              "content": "钢丝绳无断丝、断股，磨损不超标",
+              "seq": 3
+            },
+            {
+              "project": "缓冲器",
+              "content": "走行缓冲器齐全，完整",
+              "seq": 4
+            },
+            {
+              "project": "钩装置",
+              "content": "钩头无裂纹和磨损超限，防脱钩装置完好",
+              "seq": 5
+            },
+            {
+              "project": "制动装置",
+              "content": "制动有效",
+              "seq": 6
+            },
+            {
+              "project": "大车限位",
+              "content": "大车限位完整有效",
+              "seq": 7
+            },
+            {
+              "project": "小车限位",
+              "content": "小车限位完整有效",
+              "seq": 8
+            },
+            {
+              "project": "起落限位",
+              "content": "吊钩上行、下行限位完整有效",
+              "seq": 9
+            },
+            {
+              "project": "防风装置",
+              "content": "防风装置（门机）齐全有效",
+              "seq": 10
+            },
+            {
+              "project": "负荷限制器",
+              "content": "重量显示器正常、有效",
+              "seq": 11
+            },
+            {
+              "project": "其它",
+              "content": "其他安全防护装置完整有效",
+              "seq": 12
+            },
+            {
+              "project": "轨道检查",
+              "content": "行车轨道无异物",
+              "seq": 13
+            },
+            {
+              "project": "整车清洁",
+              "content": "设备日常清扫、清洁完成",
+              "seq": 14
+            },
+            {
+              "project": "试运行",
+              "content": "设备运行操作正常，无异响",
+              "seq": 15
+            }
+          ],
+          "labels": {
+            "item": "项目",
+            "content": "检查保养内容"
+          },
+          "name": "点检保养标准",
+          "fileName": "点检标准.xlsx",
+          "stdCode": "02010102",
+          "version": 2,
+          "updatedAt": "2026-08-07"
+        },
+        "2026-09": {
+          "status": "active",
+          "items": [
+            {
+              "project": "电源检查",
+              "content": "电源指示灯正常，电源开启正常",
+              "seq": 1
+            },
+            {
+              "project": "控制系统",
+              "content": "控制系统正常，操作杆灵敏可靠",
+              "seq": 2
+            },
+            {
+              "project": "钢丝绳",
+              "content": "钢丝绳无断丝、断股，磨损不超标",
+              "seq": 3
+            },
+            {
+              "project": "缓冲器",
+              "content": "走行缓冲器齐全，完整",
+              "seq": 4
+            },
+            {
+              "project": "钩装置",
+              "content": "钩头无裂纹和磨损超限，防脱钩装置完好",
+              "seq": 5
+            },
+            {
+              "project": "制动装置",
+              "content": "制动有效",
+              "seq": 6
+            },
+            {
+              "project": "大车限位",
+              "content": "大车限位完整有效",
+              "seq": 7
+            },
+            {
+              "project": "小车限位",
+              "content": "小车限位完整有效",
+              "seq": 8
+            },
+            {
+              "project": "起落限位",
+              "content": "吊钩上行、下行限位完整有效",
+              "seq": 9
+            },
+            {
+              "project": "防风装置",
+              "content": "防风装置（门机）齐全有效",
+              "seq": 10
+            },
+            {
+              "project": "负荷限制器",
+              "content": "重量显示器正常、有效",
+              "seq": 11
+            },
+            {
+              "project": "其它",
+              "content": "其他安全防护装置完整有效",
+              "seq": 12
+            },
+            {
+              "project": "轨道检查",
+              "content": "行车轨道无异物",
+              "seq": 13
+            },
+            {
+              "project": "整车清洁",
+              "content": "设备日常清扫、清洁完成",
+              "seq": 14
+            },
+            {
+              "project": "试运行",
+              "content": "设备运行操作正常，无异响",
+              "seq": 15
+            }
+          ],
+          "labels": {
+            "item": "项目",
+            "content": "检查保养内容"
+          },
+          "name": "点检保养标准",
+          "fileName": "点检标准.xlsx",
+          "stdCode": "02010102",
+          "version": 2,
+          "updatedAt": "2026-08-10",
+          "safetyNotice": {
+            "title": "安全告知及注意事项",
+            "content": ""
+          }
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0,
+          "updatedAt": "2026-08-10"
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        },
+        "2026-08": {
+          "status": "active",
+          "categories": [],
+          "labels": {
+            "name": "检查项目",
+            "standard": "合格标准"
+          },
+          "handlingOpinions": [
+            "停机处理",
+            "列入维修计划（建议完成时限）",
+            "继续观察运行"
+          ],
+          "safetyNotice": {
+            "title": "安全告知及注意事项",
+            "content": "1.检查前，要确认设备处于停电状态、停机工位。\n2.检查中，要做好互联互保，防止发生安全事故。\n3.检查后，要与操作人员做好交接。确认后开机。"
+          },
+          "name": "定期检查标准",
+          "fileName": "定期检标准.xlsx",
+          "stdCode": "02010106",
+          "version": 1,
+          "updatedAt": "2026-08-12"
+        },
+        "2026-09": {
+          "status": "active",
+          "categories": [
+            {
+              "seq": 1,
+              "name": "11111",
+              "standard": "222222",
+              "checkItems": []
+            },
+            {
+              "seq": 2,
+              "name": "11112",
+              "standard": "22222",
+              "checkItems": []
+            }
+          ],
+          "labels": {
+            "name": "检查项目",
+            "standard": "合格标准"
+          },
+          "handlingOpinions": [
+            "停机处理",
+            "列入维修计划（建议完成时限）",
+            "继续观察运行"
+          ],
+          "safetyNotice": {
+            "title": "安全告知及注意事项",
+            "content": "1.检查前，要确认设备处于停电状态、停机工位。\n2.检查中，要做好互联互保，防止发生安全事故。\n3.检查后，要与操作人员做好交接。确认后开机。"
+          },
+          "name": "定期检查标准",
+          "fileName": "定期检标准.xlsx",
+          "stdCode": "02010106",
+          "version": 2,
+          "updatedAt": "2026-08-12"
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "2026-08": {
+          "status": "active",
+          "items": [
+            {
+              "category": "设备外表",
+              "content": "清扫起重机外表及驾驶室内外",
+              "standard": "整齐清洁",
+              "seq": 1
+            },
+            {
+              "category": "起升机构",
+              "content": "检查起重装置，钢丝绳卷挠系统的零部件",
+              "standard": "消除缺陷，达到起重机械安全规程的要求",
+              "seq": 2
+            },
+            {
+              "category": "起升机构",
+              "content": "检查减速装置、驱动装置的零部件",
+              "standard": "消除松动现象，使传动平稳、运转正常",
+              "seq": 3
+            },
+            {
+              "category": "起升机构",
+              "content": "检查制动装置，调整间隙",
+              "standard": "制动灵敏，可靠",
+              "seq": 4
+            },
+            {
+              "category": "起升机构",
+              "content": "检查安全装置，动作安全可靠",
+              "standard": "安全可靠",
+              "seq": 5
+            },
+            {
+              "category": "起升机构",
+              "content": "检查起重量限制器，校正载荷重量指示值",
+              "standard": "正确可靠",
+              "seq": 6
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车车轮装置及轨道",
+              "standard": "行走平稳可靠",
+              "seq": 7
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车运行驱动装置，消除松动",
+              "standard": "传动平稳运转正常",
+              "seq": 8
+            },
+            {
+              "category": "行走机构",
+              "content": "检查并调整制动装置",
+              "standard": "制动灵敏、可靠",
+              "seq": 9
+            },
+            {
+              "category": "行走机构",
+              "content": "检查安全装置，并消除缺陷",
+              "standard": "安全可靠",
+              "seq": 10
+            },
+            {
+              "category": "设备润滑",
+              "content": "检查齿轮减速器润滑油，油质达到润滑要求",
+              "standard": "油量，油质达到润滑要求",
+              "seq": 11
+            },
+            {
+              "category": "设备润滑",
+              "content": "对轴承座，制动架，联轴器、滑轮组等加注润滑脂",
+              "standard": "润滑正常",
+              "seq": 12
+            },
+            {
+              "category": "电气系统",
+              "content": "擦拭电动机及电器箱",
+              "standard": "内外清洁，检查有无异常",
+              "seq": 13
+            },
+            {
+              "category": "限位装置",
+              "content": "检查限位装置与接地是否安全可靠",
+              "standard": "安全可靠",
+              "seq": 14
+            }
+          ],
+          "labels": {
+            "item": "项目",
+            "content": "工序内容",
+            "standard": "合格标准"
+          },
+          "safetyNotice": {
+            "title": "安全告知及注意事项",
+            "content": "1.保养前，要确认设备处于停电状态、停机工位。\n2.保养前，要确认劳保护具佩戴齐全，工器具完好、合格。\n3.保养中，要合理使用工器具，按保养工艺要求操作，做好互联互保，防止发生安全事故。\n4.保养后，要清理现场，保持清洁；废旧零部件按要求回收；危废物资按要求收集、处置。\n5.保养后，要试车正常，做好交接。"
+          },
+          "name": "一级保养标准",
+          "fileName": "一级保养计划标准.xlsx",
+          "stdCode": "02010103",
+          "version": 3,
+          "updatedAt": "2026-08-08"
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0,
+          "updatedAt": "2026-08-10"
+        },
+        "2026-08": {
+          "status": "active",
+          "items": [
+            {
+              "category": "起升机构",
+              "content": "检查起重装置，钢丝绳卷挠系统的零部件",
+              "method": "检查",
+              "tool": "扳手",
+              "standard": "达到起重机械安全规程的要求",
+              "seq": 1
+            },
+            {
+              "category": "起升机构",
+              "content": "检查减速装置、驱动装置的零部件",
+              "method": "检修",
+              "tool": "扳手",
+              "standard": "达到起重机械安全规程的要求",
+              "seq": 2
+            },
+            {
+              "category": "起升机构",
+              "content": "检查制动装置，调整间隙，更换制动块",
+              "method": "检查",
+              "tool": "内六角",
+              "standard": "制动灵敏可靠",
+              "seq": 3
+            },
+            {
+              "category": "起升机构",
+              "content": "检查安全装置，修复损坏件",
+              "method": "检修",
+              "tool": "内六角",
+              "standard": "动作安全可靠",
+              "seq": 4
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车车轮行走时有否咬边",
+              "method": "检修",
+              "tool": "内六角",
+              "standard": "行走平稳、可靠",
+              "seq": 5
+            },
+            {
+              "category": "行走机构",
+              "content": "检查大、小车运行驱动装置的零部件",
+              "method": "检修",
+              "tool": "螺丝刀",
+              "standard": "传动平稳，工作可靠",
+              "seq": 6
+            },
+            {
+              "category": "行走机构",
+              "content": "检查制动装置，调整间隙，更换制动块",
+              "method": "检修",
+              "tool": "内六角",
+              "standard": "制动灵敏可靠",
+              "seq": 7
+            },
+            {
+              "category": "行走机构",
+              "content": "检查安全装置",
+              "method": "检修",
+              "tool": "螺丝刀",
+              "standard": "动作安全可靠",
+              "seq": 8
+            },
+            {
+              "category": "设备润滑",
+              "content": "检修齿轮减速器，调换润滑油",
+              "method": "检修",
+              "tool": "加油壶",
+              "standard": "达到润滑要求",
+              "seq": 9
+            },
+            {
+              "category": "设备润滑",
+              "content": "检查润滑油路及各密封件",
+              "method": "检修",
+              "tool": "内六角",
+              "standard": "油路畅通，消除漏油",
+              "seq": 10
+            },
+            {
+              "category": "设备润滑",
+              "content": "对需润滑脂的滑动副加注润滑脂",
+              "method": "润滑",
+              "tool": "加油壶",
+              "standard": "达到润滑要求",
+              "seq": 11
+            },
+            {
+              "category": "电气系统",
+              "content": "检修电器箱及电气控制系统",
+              "method": "清扫",
+              "tool": "除尘器",
+              "standard": "达到整洁、安全可靠",
+              "seq": 12
+            },
+            {
+              "category": "电机",
+              "content": "检修电动机",
+              "method": "检修",
+              "tool": "加油枪",
+              "standard": "补充或更换润滑油脂",
+              "seq": 13
+            },
+            {
+              "category": "限位装置",
+              "content": "检修所有限位装置",
+              "method": "检修",
+              "tool": "螺丝刀",
+              "standard": "达到安全可靠",
+              "seq": 14
+            },
+            {
+              "category": "负荷限制器",
+              "content": "检查起重量限制器，校正载荷重量指示值",
+              "method": "检查",
+              "tool": "螺丝刀",
+              "standard": "正确可靠",
+              "seq": 15
+            }
+          ],
+          "labels": {
+            "item": "项目",
+            "content": "工序内容",
+            "method": "方式方法",
+            "tool": "工器具",
+            "standard": "合格标准要求"
+          },
+          "safetyNotice": {
+            "title": "安全告知及注意事项",
+            "content": "1.保养前，要确认设备处于停电状态、停机工位。\n2.保养前，要确认劳保护具佩戴齐全，工器具完好、合格。\n3.保养中，要合理使用工器具，按保养工艺要求操作，做好互联互保，防止发生安全事故。\n4.保养后，要清理现场，保持清洁；废旧零部件按要求回收；危废物资按要求收集、处置。\n5.保养后，要试车正常，做好交接。"
+          },
+          "name": "二级保养标准",
+          "fileName": "二级保养标准.xlsx",
+          "stdCode": "02010104",
+          "version": 1,
+          "updatedAt": "2026-08-12"
+        }
+      }
+    }
+  },
+  "020110": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020102": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020103": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020104": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020105": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020106": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020107": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020108": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020109": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  },
+  "020111": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
+  }
+}

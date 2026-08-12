@@ -1,0 +1,333 @@
+{
+  "16150201010001": {
+    "supervisorId": "p017",
+    "leaderId": "p004",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003",
+      "p011"
+    ]
+  },
+  "16150201010002": {
+    "supervisorId": "p017",
+    "leaderId": "p004",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ]
+  },
+  "16150201010003": {
+    "supervisorId": "p017",
+    "leaderId": "p004",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ]
+  },
+  "16150201010004": {
+    "supervisorId": "p017",
+    "leaderId": "p004",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ]
+  },
+  "16150201010005": {
+    "supervisorId": "p017",
+    "leaderId": "p004",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ]
+  },
+  "16150201010006": {
+    "supervisorId": "p017",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "leaderId": "p004",
+    "operatorIds": [
+      "p011"
+    ]
+  },
+  "16150201010007": {
+    "supervisorId": "p017",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "leaderId": "p004",
+    "operatorIds": [
+      "p011"
+    ]
+  },
+  "16150201010008": {
+    "supervisorId": "p017",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "leaderId": "p004",
+    "operatorIds": [
+      "p011"
+    ]
+  },
+  "16150201010009": {
+    "supervisorId": "p017",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "leaderId": "p004",
+    "operatorIds": [
+      "p011"
+    ]
+  },
+  "16150201010010": {
+    "supervisorId": "p017",
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "leaderId": "p004",
+    "operatorIds": [
+      "p011"
+    ]
+  },
+  "16150201010011": {
+    "updatedAt": "2026-08-11T06:46:40.247Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010012": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010013": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010014": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010015": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010016": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010017": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010018": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010019": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010020": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010021": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010022": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010023": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010024": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010025": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010026": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010027": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010028": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010029": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010030": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010031": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010032": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010033": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010034": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010035": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010036": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010037": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010038": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010039": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  },
+  "16150201010040": {
+    "updatedAt": "2026-08-11T06:46:40.248Z",
+    "updatedBy": "p001",
+    "operatorIds": [
+      "p003"
+    ],
+    "supervisorId": "p017"
+  }
+}

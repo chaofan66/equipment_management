@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== Base ========== */
+body {
+  font-family: 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+  margin: 0;
+}
+
+/* ========== Top-level Tab Navigation (not Element Plus tabs) ========== */
+.tab-btn {
+  background: transparent;
+  color: #606266;
+  font-weight: 400;
+}
+.tab-btn.active {
+  background: #1192e8;
+  color: white;
+  font-weight: 600;
+}
+
+/* ========== Section Title with Blue Bar ========== */
+.dr-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  margin-top: 20px;
+}
+.dr-section-title::before {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 12px;
+  background: #1192e8;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* ========== Detail Grid (4 columns) ========== */
+.dr-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px 40px;
+  margin-bottom: 8px;
+}
+.dr-detail-item {
+  display: flex;
+  align-items: center;
+}
+.dr-detail-label {
+  width: 102px;
+  flex-shrink: 0;
+  text-align: left;
+  font-size: 12px;
+  color: #303133;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.dr-detail-value {
+  flex: 1;
+  font-size: 12px;
+  color: #303133;
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 8px;
+}
+
+/* ========== Form Layout ========== */
+.field-row {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  margin-bottom: 8px;
+}
+.field-label {
+  width: 102px;
+  flex-shrink: 0;
+  text-align: left;
+  font-size: 12px;
+  color: #303133;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.field-required {
+  color: #FF453A;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 40px;
+}

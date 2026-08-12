@@ -1,0 +1,47 @@
+{
+  "16150201010001": {
+    "supervisorId": "p015",
+    "leaderId": "p005",
+    "operatorIds": [
+      "p006"
+    ],
+    "updatedAt": "2026-08-07T09:17:57.633Z",
+    "updatedBy": "p009"
+  },
+  "16150201010002": {
+    "supervisorId": "p015",
+    "leaderId": "p005",
+    "operatorIds": [
+      "p006"
+    ],
+    "updatedAt": "2026-08-07T09:17:57.635Z",
+    "updatedBy": "p009"
+  },
+  "16150201010003": {
+    "supervisorId": "p015",
+    "leaderId": "p005",
+    "operatorIds": [
+      "p006"
+    ],
+    "updatedAt": "2026-08-07T09:17:57.636Z",
+    "updatedBy": "p009"
+  },
+  "16150201010004": {
+    "supervisorId": "p015",
+    "leaderId": "p005",
+    "operatorIds": [
+      "p006"
+    ],
+    "updatedAt": "2026-08-07T09:17:57.638Z",
+    "updatedBy": "p009"
+  },
+  "16150201010005": {
+    "supervisorId": "p015",
+    "leaderId": "p005",
+    "operatorIds": [
+      "p006"
+    ],
+    "updatedAt": "2026-08-07T09:17:57.640Z",
+    "updatedBy": "p009"
+  }
+}
