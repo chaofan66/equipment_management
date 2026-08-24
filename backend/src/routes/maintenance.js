@@ -189,20 +189,7 @@ router.post('/inspections', (req, res) => {
     steps,
   };
   maintenance.inspectionRecords.push(newRecord);
-  // V1.36：定期检查发现问题（含 desc）自动生成整改项（进行中，期限=检查日期+15天，§5.10 问题7），供「月度报表」联动整改状态
-  (body.issues || []).forEach(i => {
-    const desc = (i.desc || '').trim();
-    if (!desc) return;
-    if (maintenance.rectificationItems.find(r => r.checkId === id && r.issue === desc)) return;
-    const base = new Date((body.checkDate || fmtDate(new Date())) + 'T00:00:00');
-    maintenance.rectificationItems.push({
-      id: 'RECT-' + String(maintenance.rectificationItems.length + 1).padStart(3, '0'),
-      checkId: id, deviceCode: body.deviceCode, deviceName: body.deviceName, dept: body.dept || '',
-      issue: desc, category: '定期检查',
-      fixPlan: '', responsible: '', deadline: fmtDate(new Date(base.getTime() + 15 * 86400000)),
-      status: '进行中', createdAt: fmtDate(new Date()),
-    });
-  });
+  // 发现问题仅留在检查记录 issues 上；月度报表只统计有问题的检查单，不再生成整改项/状态
   res.status(201).json({ success: true, data: newRecord });
 });
 

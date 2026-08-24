@@ -40,6 +40,11 @@ const dcStates = [
 ]
 
 const currentStep = computed(() => plan.value?.steps.find(s => s.status !== 'done'))
+// PRD §7.3.1：班后三项合计，超 24h 前端警告
+const afterShiftSum = computed(() => {
+  const a = plan.value?.afterShift || {}
+  return Number(a.runHours || 0) + Number(a.faultStopHours || 0) + Number(a.planStopHours || 0)
+})
 // V1.24 已提交步骤：全部按序累积展示在当前步骤录入表单上方
 const doneSteps = computed(() => plan.value?.steps.filter(s => s.status === 'done') || [])
 // V1.40 该已提交步骤是否有可展示内容：纯提交/纯审批步骤无表单内容，跳过外层边框容器避免空框
@@ -348,9 +353,9 @@ function onAttPreview(file) {
         <div class="text-xs text-[#909399] mt-1">任一项"异常"提交后自动生成维修工单（§3.6D）。班前异常不阻断班后提交。</div>
       </div>
 
-      <!-- ② 日常点检·班后固定表单（V1.18：班后无检查项，仅 每日运行信息 3 项固定表单，按图设计） -->
+      <!-- ② 日常点检·班后固定表单（V1.18：班后无检查项，仅 每日运行信息 3 项固定表单；PRD §7.3.1 无额定台时） -->
       <div v-if="plan.projectType === 'daily_check' && currentStep?.seq === 2">
-        <div class="bg-[#f0f9ff] border border-[#b8d6f3] rounded p-2 mb-3 text-xs text-[#1192E8]">说明：每日下班填写每日设备运行信息。</div>
+        <div class="bg-[#f0f9ff] border border-[#b8d6f3] rounded p-2 mb-3 text-xs text-[#1192E8]">说明：每日下班填写每日设备运行信息。利用率 = 运行 ÷ (运行+故障+计划)，不使用额定台时。</div>
         <div class="text-xs font-semibold text-[#606266] mb-1">每日运行信息（固定表单，§5.9(3)）</div>
         <el-form label-width="140px" size="small" style="max-width:520px">
           <el-form-item label="每日运行时间(小时)">
@@ -363,6 +368,8 @@ function onAttPreview(file) {
             <el-input-number v-model="plan.afterShift.planStopHours" :min="0" :max="24" :step="0.5" controls-position="right" />
           </el-form-item>
         </el-form>
+        <div class="text-xs text-[#e6a23c] mt-1">当日有保养 / 检查 / 润滑排期时请如实填写「计划停台时间」（手工录入，不自动带入）。</div>
+        <div v-if="afterShiftSum > 24" class="text-xs text-[#f56c6c] mt-1">三项合计 {{ afterShiftSum }}h 已超过 24 小时，请核对。</div>
         <div class="text-xs text-[#909399] mt-1">班前检查任一项"异常"会在提交班前时自动生成维修工单（§3.6D），不阻断班后录入。</div>
       </div>
 

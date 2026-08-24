@@ -329,7 +329,7 @@ onMounted(async () => {
             <el-tag size="small" type="info">取数周期 {{ report.period }} · {{ report.daysInPeriod }} 天</el-tag>
             <el-tag size="small" type="success">已点检 {{ report.checkDays }} 天 · 完成率 {{ report.checkCompletion }}%</el-tag>
             <el-tag v-if="report.missedDays?.length" size="small" type="danger">缺检 {{ report.missedDays.length }} 天</el-tag>
-            <el-tag size="small" type="info">额定台时 {{ report.ratedHours }}h/日</el-tag>
+            <el-tag size="small" type="info">占用台时 {{ (report.runHours||0)+(report.faultStopHours||0)+(report.planStopHours||0) }}h（运行+故障+计划）</el-tag>
             <div class="flex-1" />
             <span v-for="k in deviceKpis" :key="k.label" class="flex items-center gap-1">
               <span class="text-[#909399]">{{ k.label }}</span>

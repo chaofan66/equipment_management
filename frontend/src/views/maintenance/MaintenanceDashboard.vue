@@ -34,7 +34,7 @@ function switchMonth(delta) {
 // ---- Row5 KPI 图表（overview.kpi，环形图） ----
 const kpiCards = computed(() => [
   { title: '设备完好率', value: kpi.value.availability ?? '—', sub: `${kpi.value.totalDevices ?? 0} 台设备参与点检`, color: '#67c23a', path: '/maintenance/daily-check' },
-  { title: '设备利用率', value: kpi.value.utilization ?? '—', sub: `运行 ${kpi.value.runHours ?? 0}h`, color: '#409eff', path: '/maintenance/daily-check' },
+  { title: '设备利用率', value: kpi.value.utilization ?? '—', sub: `运行 ${kpi.value.runHours ?? 0}h / 占用 ${kpi.value.occupiedHours ?? ((kpi.value.runHours||0)+(kpi.value.faultStopHours||0)+(kpi.value.planStopHours||0))}h`, color: '#409eff', path: '/maintenance/daily-check' },
   { title: '设备故障率', value: kpi.value.faultRate ?? '—', sub: `故障停台 ${kpi.value.faultStopHours ?? 0}h`, color: '#f56c6c', path: '/maintenance/repair' },
   { title: '计划停运率', value: kpi.value.plannedStopRate ?? '—', sub: `计划停台 ${kpi.value.planStopHours ?? 0}h`, color: '#e6a23c', path: '/maintenance/daily-check' },
 ])
@@ -44,7 +44,7 @@ const statCards = computed(() => [
   { title: '本月待保养', value: stats.value.pendingPlans || 0, sub: '一级/二级/润滑', path: '/maintenance/plans', color: '#409eff' },
   { title: '本月待检查', value: stats.value.pendingInspections || 0, sub: '定期检查', path: '/maintenance/inspection', color: '#e6a23c' },
   { title: '待派工', value: stats.value.pendingDispatch || 0, sub: '故障报修', path: '/maintenance/repair', color: '#f56c6c' },
-  { title: '超期未闭', value: stats.value.overdue || 0, sub: '计划 + 整改项', path: '/maintenance/inspection', color: '#e04040' },
+  { title: '超期未闭', value: stats.value.overdue || 0, sub: '保养/检查计划', path: '/maintenance/inspection', color: '#e04040' },
   { title: '本月已完成', value: stats.value.completed || 0, sub: '保养+检查+维修', path: '', color: '#67c23a' },
 ])
 
@@ -73,7 +73,6 @@ const calendarDays = computed(() => {
 
 // ---- Row3 超期预警（overview.overdueList） ----
 const overduePlan = computed(() => (overview.value.overdueList && overview.value.overdueList.plan) || [])
-const overdueRect = computed(() => (overview.value.overdueList && overview.value.overdueList.rect) || [])
 function overduePlanPath(item) {
   return item.type === '检查' ? '/maintenance/inspection' : '/maintenance/plans'
 }
@@ -187,7 +186,7 @@ onMounted(loadOverview)
         <div class="flex flex-col gap-3 h-full">
           <el-card shadow="never" class="flex-card flex-1">
             <template #header><span class="text-sm font-semibold">⏰ 超期预警</span></template>
-            <div v-if="!overduePlan.length && !overdueRect.length" class="flex-1 flex items-center justify-center text-xs text-[#909399]">暂无超期任务 ✓</div>
+            <div v-if="!overduePlan.length" class="flex-1 flex items-center justify-center text-xs text-[#909399]">暂无超期任务 ✓</div>
             <div v-else class="flex flex-col flex-1">
               <!-- 计划超期（保养/检查） -->
               <div v-for="item in overduePlan" :key="'p-' + item.deviceCode + item.planDate"
@@ -196,15 +195,6 @@ onMounted(loadOverview)
                 <span class="flex-1 truncate">{{ item.deviceName }}</span>
                 <span class="text-[#909399]">{{ item.dept }}</span>
                 <span class="text-[#909399]">{{ item.planDate }}</span>
-                <span class="text-red-500 font-semibold">超期 {{ item.overdueDays }}天</span>
-              </div>
-              <!-- 整改超期 -->
-              <div v-for="item in overdueRect" :key="'r-' + item.id"
-                class="flex items-center gap-3 py-1 text-xs cursor-pointer hover:bg-[#f5f7fa]" @click="goTo('/maintenance/inspection')">
-                <el-tag size="small" type="danger" effect="plain">整改</el-tag>
-                <span class="flex-1 truncate">{{ item.deviceName }}</span>
-                <span class="text-[#909399]">{{ item.dept }}</span>
-                <span class="text-[#909399]">{{ item.deadline }}</span>
                 <span class="text-red-500 font-semibold">超期 {{ item.overdueDays }}天</span>
               </div>
             </div>

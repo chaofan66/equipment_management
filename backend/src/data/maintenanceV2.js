@@ -616,13 +616,7 @@ function advanceStep(planId, stepNo, payload) {
         // V1.18：班后提交 = 班后固定表单（台时3项：每日运行时间/故障停台时间/计划停台时间）
         if (data.afterShift) {
           plan.afterShift = data.afterShift;                       // 班后固定表单
-          // §5.9(3) 计划停台自动带：当日排期有保养/检查/润滑计划 → 自动补计划停台
-          const hasSched = generatedPlans.some(p => p.deviceCode === plan.deviceCode
-            && (p.projectType === 'level1' || p.projectType === 'level2' || p.projectType === 'lubrication' || p.projectType === 'periodic_inspection')
-            && p.planDate === plan.planDate && !p.voided);
-          if (hasSched && (plan.afterShift.planStopHours === undefined || plan.afterShift.planStopHours === '')) {
-            plan.afterShift.planStopHours = getRatedHours(plan.deviceCode);
-          }
+          // PRD §7.3.1 / D-06：计划停台手工填写，有排期仅前端提示，不按额定台时自动带入
           // §5.4/§5.9(3)：班后台时顺势写入台时记录（KPI 日累计数据源）
           upsertKpi(plan.deviceCode, plan.planDate, {
             runHours: Number(plan.afterShift.runHours || 0),
@@ -640,20 +634,7 @@ function advanceStep(planId, stepNo, payload) {
       }
     } else if (plan.projectType === 'periodic_inspection' && currentStep.seq === 1 && data.categories) {
       plan.categories = data.categories;                         // 定期检查逐类结果
-      // §5.10 问题7：监控运行问题 → 整改跟踪闭环（整改人=维保人员，期限15天可配）
-      (data.categories || []).forEach(c => {
-        if (c.result === '超标' && c.handlingOpinion === '继续观察运行' && c.issue
-            && !rectifications.find(r => r.checkId === plan.id && r.issue === c.issue)) {
-          rectifications.push({
-            id: 'RECT-' + String(rectifications.length + 1).padStart(3, '0'),
-            checkId: plan.id, deviceCode: plan.deviceCode, deviceName: plan.deviceName,
-            issue: c.issue, category: c.name,
-            fixPlan: '监控运行，限期整改（' + (c.handlingOpinion || '继续观察运行') + '）',
-            responsible: '维保人员', deadline: addDaysStr(plan.planDate, 15),
-            status: '进行中', createdAt: fmtDate(new Date()),
-          });
-        }
-      });
+      // 发现问题记在 categories/issues；不再生成整改跟踪项（月报只列有问题检查记录）
     } else if (plan.projectType === 'repair' && data) {
       // 维修数据合并（安配4项/危险作业票/交底/完工内容/试机结果）
       plan.repairData = { ...plan.repairData, ...data };
@@ -794,16 +775,16 @@ function upsertKpi(deviceCode, dateStr, data) {
   return rec;
 }
 
-// 额定日工作时长配置（§5.4 设备级默认8h）
+// 额定日工作时长（已废弃：PRD V1.1 / §7.3.1 利用率改用 R÷(R+F+P)，不再依赖额定台时）
+// 保留空字典与 setter 避免外部引用报错，新逻辑请勿再调用
+const ratedHours = {};
 function setRatedHours(deviceCode, hours) {
   ratedHours[deviceCode] = Number(hours) || 8;
   return ratedHours[deviceCode];
 }
-
-// ===================== 报表聚合（§5.6 / §5.4 KPI） =====================
-// 额定日工作时长（设备级，默认8h）
-const ratedHours = {};
 function getRatedHours(deviceCode) { return ratedHours[deviceCode] || 8; }
+
+// ===================== 报表聚合（§5.6 / §5.4 KPI；PRD §7.3.1） =====================
 
 // 点检月报（§5.6 报表1 + §5.4 KPI；V1.53 起取数周期=设备 02 模板执行时间段，废弃 26→25 跨月口径）
 function dailyCheckReport(deviceCode, year, month) {
@@ -852,11 +833,12 @@ function dailyCheckReport(deviceCode, year, month) {
     if (sched && sched.status !== '已归档') missedDays.push(ds);
     if (k && faultToday === 0 && openWo === 0 && !openRepair) healthyDays++;
   });
-  const rated = getRatedHours(deviceCode);
+  // PRD §7.3.1：利用率 = ΣR ÷ Σ(R+F+P)，不再使用额定台时；分母为 0 记 0%
+  const occupiedHours = runHours + faultStopHours + planStopHours;
   const availability = (healthyDays / daysInPeriod) * 100;
-  const utilization = (runHours / (daysInPeriod * rated)) * 100;
+  const utilization = occupiedHours > 0 ? (runHours / occupiedHours) * 100 : 0;
   const faultRate = runHours > 0 ? (faultStopHours / runHours) * 100 : 0;
-  const plannedStopRate = runHours > 0 ? (planStopHours / runHours) * 100 : 0;   // V1.59：计划停运率 = 计划停台时间÷运行台时（替代原随机故障率）
+  const plannedStopRate = runHours > 0 ? (planStopHours / runHours) * 100 : 0;   // V1.59：计划停运率 = 计划停台时间÷运行台时
   return {
     deviceCode, deviceName: device.name, spec: device.spec, year: y, month: m,
     period: mb.validFrom + ' ~ ' + mb.validUntil, daysInPeriod,
@@ -867,10 +849,9 @@ function dailyCheckReport(deviceCode, year, month) {
       const [zone, seq] = key.split(':');
       return { zone, seq: Number(seq), label: (zone === 'after' ? '班后 ' : '班前 ') + Number(seq), done: doneItems[key], abnormal: (abnormalItems[key] || 0) - (handledItems[key] || 0), handled: handledItems[key] || 0 };
     }),
-    runHours, faultStopHours, planStopHours,
+    runHours, faultStopHours, planStopHours, occupiedHours,
     missedDays, healthyDays, availability: Number(availability.toFixed(2)),
     utilization: Number(utilization.toFixed(2)), faultRate: Number(faultRate.toFixed(2)), plannedStopRate: Number(plannedStopRate.toFixed(2)),
-    ratedHours: rated,
   };
 }
 
@@ -902,15 +883,16 @@ function kpiDashboard(year, month) {
     planH += rep.planStopHours; healthy += rep.healthyDays; daysIn = rep.daysInPeriod || 1;
   });
   const totalDevices = checkDevices.length;
-  const rated = 8;   // 额定日工作时长默认8h（设备级配置见 ratedHours）
+  // PRD §7.3.1：总体利用率 = ΣR ÷ Σ(R+F+P)，不使用额定台时
+  const occupiedH = runH + faultH + planH;
   return {
     year: parseInt(year), month: parseInt(month),
     totalDevices,
     availability: totalDevices ? Number((healthy / (totalDevices * daysIn) * 100).toFixed(2)) : 0,
-    utilization: runH > 0 ? Number((runH / (totalDevices * daysIn * rated) * 100).toFixed(2)) : 0,
+    utilization: occupiedH > 0 ? Number((runH / occupiedH * 100).toFixed(2)) : 0,
     faultRate: runH > 0 ? Number((faultH / runH * 100).toFixed(2)) : 0,
-    plannedStopRate: runH > 0 ? Number((planH / runH * 100).toFixed(2)) : 0,   // V1.59：计划停运率（替代原随机故障率）
-    runHours: runH, faultStopHours: faultH, planStopHours: planH,
+    plannedStopRate: runH > 0 ? Number((planH / runH * 100).toFixed(2)) : 0,
+    runHours: runH, faultStopHours: faultH, planStopHours: planH, occupiedHours: occupiedH,
   };
 }
 
@@ -940,7 +922,7 @@ function dashboardOverview(year, month) {
     return s2 ? s2.status !== 'done' : p.status !== '已归档';
   }).length;
   const overduePlan = monthPlans.filter(p => p.status === '已超期' && (planStatuses.includes(p.projectType) || p.projectType === 'periodic_inspection'));
-  const overdue = overduePlan.length + rectifications.filter(r => r.status === '已超期').length;
+  const overdue = overduePlan.length;
   const completed = monthPlans.filter(p => p.status === '已归档' && doneTypes.includes(p.projectType)).length;
   const stats = { pendingPlans, pendingInspections, pendingDispatch, overdue, completed };
 
@@ -953,7 +935,7 @@ function dashboardOverview(year, month) {
     status: p.status,
   }));
 
-  // ---- 超期预警（当月保养/检查超期 + 全局整改超期） ----
+  // ---- 超期预警（当月保养/检查超期；不再含整改超期） ----
   const today = fmtDate(new Date());
   const overdueDays = ds => Math.max(0, Math.floor((new Date(today) - new Date(ds)) / 86400000));
   const planOverdue = overduePlan.map(p => ({
@@ -961,11 +943,7 @@ function dashboardOverview(year, month) {
     deviceCode: p.deviceCode, deviceName: p.deviceName, dept: p.dept, planDate: p.planDate,
     overdueDays: overdueDays(p.planDate),
   }));
-  const rectOverdue = rectifications.filter(r => r.status === '已超期').map(r => ({
-    id: r.id, deviceName: r.deviceName || '', dept: r.dept || '', deadline: r.deadline,
-    overdueDays: r.deadline ? overdueDays(r.deadline) : 0,
-  }));
-  const overdueList = { plan: planOverdue, rect: rectOverdue };
+  const overdueList = { plan: planOverdue, rect: [] };
 
   // ---- 工作量 TOP5（当月按部门聚合单数） ----
   const deptCounts = {};

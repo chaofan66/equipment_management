@@ -13,7 +13,7 @@ const authStore = useAuthStore()
 const toast = useToast()
 
 // View tabs
-const activeTab = ref('inspections') // 'inspections' | 'rectifications'
+const activeTab = ref('inspections') // 'inspections' | 'report'
 
 // V1.36 检查列表筛选：资产类型（三级级联 大类/中类/小类）+ 检查人 + 状态 + 部门
 const filterAssetType = ref([])
@@ -22,11 +22,6 @@ const filterStatus = ref('')
 const filterDept = ref('')
 
 const statusOptions = ['待提交', '待确认', '待验收', '待审核', '待归档', '已归档', '已完成']
-
-// Rectification edit
-const showRectDialog = ref(false)
-const currentRect = ref(null)
-const rectForm = reactive({ fixPlan: '', responsible: '', deadline: '', status: '进行中' })
 
 // ===================== V1.34 定期检查「发起检查」表单（按《定期检查表单.jpg》改版） =====================
 const showCreateDialog = ref(false)
@@ -229,47 +224,6 @@ async function submitInspection() {
   }
 }
 
-// V1.36 月度报表「编辑」：打开整改项编辑弹窗（row 为月度明细行，取 row.rect 真实整改项）
-function openRectEdit(row) {
-  if (!row || !row.rect) return
-  currentRect.value = row.rect
-  Object.assign(rectForm, {
-    fixPlan: row.rect.fixPlan || '',
-    responsible: row.rect.responsible || '',
-    deadline: row.rect.deadline || '',
-    status: row.rect.status || '进行中'
-  })
-  showRectDialog.value = true
-}
-
-// V1.36 月度报表「标记已关闭」：PUT /rectifications/:id/close → 重拉整改列表
-async function closeIssue(row) {
-  if (!row || !row.rectId) { toast.warning('该问题暂未生成整改项'); return }
-  try {
-    await store.closeRectification(row.rectId, {})
-    toast.success('整改项已关闭')
-  } catch (e) {
-    toast.error(e.message || '关闭失败')
-  }
-}
-
-// V1.36 月度报表「编辑」保存：PUT /rectifications/:id（整改措施/责任人/期限/状态）
-async function saveRectification() {
-  if (!currentRect.value) return
-  try {
-    await store.updateRectification(currentRect.value.id, {
-      fixPlan: rectForm.fixPlan,
-      responsible: rectForm.responsible,
-      deadline: rectForm.deadline,
-      status: rectForm.status
-    })
-    toast.success('整改项已更新')
-    showRectDialog.value = false
-  } catch (e) {
-    toast.error(e.message || '保存失败')
-  }
-}
-
 // V1.36 检查列表筛选 computed ================================================
 // 资产类型级联树：从检查记录 deviceType「大类/中类/小类」中文路径构建三级级联
 // （TYPE_CODE_MAP 是编码路径且父节点无中文名，不能用字典树，PlanManagementView 同思路）
@@ -311,11 +265,10 @@ const filteredInspections = computed(() => {
   return list
 })
 
-// V1.36 月度报表 = 定期检查问题汇总（自然月，纯前端聚合 inspections + rectifications） =====
+// 月度报表 = 当月有发现问题的定期检查记录（自然月；不含整改状态）
 const monthlyMonth = ref(new Date().toISOString().slice(0, 7)) // YYYY-MM
 
-// 当月定期检查每条问题一行；联整改项取整改状态（无整改项=待整改）
-const monthlyIssues = computed(() => {
+const monthlyProblemRecords = computed(() => {
   const rows = []
   store.inspections.forEach(rec => {
     if (rec.checkType !== '定期检查') return
@@ -323,36 +276,26 @@ const monthlyIssues = computed(() => {
     const issueList = Array.isArray(rec.issues)
       ? rec.issues
       : (rec.issues ? [{ desc: rec.issues, opinion: rec.opinion }] : [])
-    issueList.forEach(iss => {
-      const desc = String(iss.desc || '').trim()
-      if (!desc) return
-      const opinion = (Array.isArray(rec.issues) ? (iss.opinion || '') : rec.opinion) || ''
-      const rect = store.rectifications.find(r => r.checkId === rec.id && (desc.includes(r.issue) || r.issue.includes(desc)))
-      rows.push({
-        checkId: rec.id,
-        deviceName: rec.deviceName,
-        dept: rec.dept || '',
-        checkDate: rec.checkDate,
-        issue: desc,
-        opinion,
-        rect: rect || null,
-        rectId: rect ? rect.id : '',
-        rectStatus: rect ? rect.status : '待整改'
-      })
+    const filled = issueList
+      .map(iss => ({
+        desc: String(iss.desc || '').trim(),
+        opinion: (Array.isArray(rec.issues) ? (iss.opinion || '') : rec.opinion) || ''
+      }))
+      .filter(iss => iss.desc)
+    if (!filled.length) return
+    rows.push({
+      checkId: rec.id,
+      deviceCode: rec.deviceCode || '',
+      deviceName: rec.deviceName,
+      dept: rec.dept || '',
+      checkDate: rec.checkDate,
+      inspector: rec.inspector || '',
+      issue: filled.map(i => i.desc).join('；'),
+      opinion: filled.map(i => i.opinion).filter(Boolean).join('；'),
+      issueCount: filled.length
     })
   })
   return rows
-})
-
-const monthlyStats = computed(() => {
-  const rows = monthlyIssues.value
-  return {
-    total: rows.length,
-    closed: rows.filter(r => r.rectStatus === '已关闭').length,
-    inProgress: rows.filter(r => r.rectStatus === '进行中').length,
-    overdue: rows.filter(r => r.rectStatus === '已超期').length,
-    pending: rows.filter(r => r.rectStatus === '待整改').length
-  }
 })
 
 // ===================== V1.61：开始执行时间 / 结束时间 =====================
@@ -372,10 +315,7 @@ const inspEnd = r => {
 }
 
 onMounted(async () => {
-  await Promise.all([
-    store.fetchInspections(),
-    store.fetchRectifications()
-  ])
+  await store.fetchInspections()
 })
 </script>
 
@@ -385,7 +325,7 @@ onMounted(async () => {
     <div class="flex items-center gap-3 px-3 py-2 border-b border-[#dcdfe6] bg-white shrink-0">
       <el-radio-group v-model="activeTab" size="small">
         <el-radio-button value="inspections">检查列表</el-radio-button>
-        <el-radio-button value="rectifications">月度报表</el-radio-button>
+        <el-radio-button value="report">月度报表</el-radio-button>
       </el-radio-group>
       <div class="flex-1" />
       <el-button v-if="activeTab === 'inspections' && canLaunch" type="primary" size="small" @click="openCreateDialog">发起检查</el-button>
@@ -444,44 +384,30 @@ onMounted(async () => {
       </el-table>
     </div>
 
-    <!-- V1.36 月度报表：定期检查问题汇总（自然月，统计卡 + 明细表） -->
-    <div v-if="activeTab === 'rectifications'" class="flex-1 overflow-auto p-3">
-      <!-- 月份选择 + 统计卡 -->
+    <!-- 月度报表：当月有发现问题的定期检查记录（无整改状态） -->
+    <div v-if="activeTab === 'report'" class="flex-1 overflow-auto p-3">
       <div class="flex items-center gap-4 mb-3">
         <span class="text-xs text-[#606266]">月份：</span>
         <el-date-picker v-model="monthlyMonth" type="month" size="small" value-format="YYYY-MM" style="width:140px" />
-      </div>
-      <div class="flex items-center gap-3 mb-3 text-xs">
-        <span class="bg-white border border-[#dcdfe6] rounded px-3 py-2">问题总数：<b class="text-[#303133]">{{ monthlyStats.total }}</b> 项</span>
-        <span class="bg-green-50 border border-green-200 text-green-600 rounded px-3 py-2">✓ 已关闭：<b>{{ monthlyStats.closed }}</b></span>
-        <span class="bg-blue-50 border border-blue-200 text-blue-600 rounded px-3 py-2">◉ 整改中：<b>{{ monthlyStats.inProgress }}</b></span>
-        <span class="bg-red-50 border border-red-200 text-red-600 rounded px-3 py-2">△ 已超期：<b>{{ monthlyStats.overdue }}</b></span>
-        <span class="bg-gray-50 border border-gray-200 text-gray-500 rounded px-3 py-2">⊘ 待整改：<b>{{ monthlyStats.pending }}</b></span>
+        <span class="bg-white border border-[#dcdfe6] rounded px-3 py-2 text-xs">有问题记录：<b class="text-[#303133]">{{ monthlyProblemRecords.length }}</b> 条</span>
       </div>
 
-      <el-table :data="monthlyIssues" size="small" stripe border empty-text="本月暂无定期检查问题">
-        <el-table-column prop="checkId" label="检查编号" width="230">
+      <el-table :data="monthlyProblemRecords" size="small" stripe border empty-text="本月暂无发现问题的检查记录">
+        <el-table-column prop="checkId" label="检查编号" width="150">
           <template #default="{ row }"><span class="font-mono text-xs text-[#1192E8]">{{ row.checkId }}</span></template>
+        </el-table-column>
+        <el-table-column label="资产编号" width="150" show-overflow-tooltip>
+          <template #default="{ row }"><span class="font-mono text-xs">{{ row.deviceCode || '—' }}</span></template>
         </el-table-column>
         <el-table-column prop="deviceName" label="设备名称" min-width="130" show-overflow-tooltip />
         <el-table-column prop="dept" label="使用部门" width="110" />
         <el-table-column prop="checkDate" label="检查日期" width="105" />
+        <el-table-column prop="inspector" label="检查人" width="90" />
+        <el-table-column label="问题数" width="80" align="center">
+          <template #default="{ row }">{{ row.issueCount }}</template>
+        </el-table-column>
         <el-table-column prop="issue" label="发现问题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="opinion" label="处理意见" min-width="160" show-overflow-tooltip />
-        <el-table-column label="整改状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.rectStatus === '已关闭' ? 'success' : row.rectStatus === '已超期' ? 'danger' : row.rectStatus === '进行中' ? 'primary' : 'info'" size="small">{{ row.rectStatus }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default="{ row }">
-            <template v-if="row.rect">
-              <el-button v-if="row.rectStatus !== '已关闭'" type="success" link size="small" @click="closeIssue(row)">标记已关闭</el-button>
-              <el-button type="primary" link size="small" @click="openRectEdit(row)">编辑</el-button>
-            </template>
-            <span v-else class="text-[#c0c4cc]">—</span>
-          </template>
-        </el-table-column>
       </el-table>
     </div>
 
@@ -585,33 +511,6 @@ onMounted(async () => {
       <template #footer>
         <el-button @click="showCreateDialog = false">取消</el-button>
         <el-button type="primary" :disabled="!createForm.deviceCode || templateUnconfigured" @click="submitInspection">提交</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Rectification Edit Dialog -->
-    <el-dialog v-model="showRectDialog" title="编辑整改项" width="500px">
-      <el-form label-width="100px" size="small" v-if="currentRect">
-        <el-form-item label="问题描述">
-          <span class="text-sm">{{ currentRect.issue }}</span>
-        </el-form-item>
-        <el-form-item label="整改措施">
-          <el-input v-model="rectForm.fixPlan" type="textarea" :rows="2" />
-        </el-form-item>
-        <el-form-item label="责任人">
-          <el-input v-model="rectForm.responsible" />
-        </el-form-item>
-        <el-form-item label="计划完成">
-          <el-input v-model="rectForm.deadline" type="date" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="rectForm.status">
-            <el-option v-for="s in ['进行中','已关闭','已超期','已暂停']" :key="s" :label="s" :value="s" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showRectDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveRectification">保存</el-button>
       </template>
     </el-dialog>
 
