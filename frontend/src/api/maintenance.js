@@ -200,9 +200,6 @@ export function uploadInspectionAttachment(file) {
 export function rescheduleV2Plan(id, data) {
   return client.put(`/maintenance/v2-plans/${id}/reschedule`, data)
 }
-export function voidV2Plan(id, data) {
-  return client.put(`/maintenance/v2-plans/${id}/void`, data)
-}
 
 // 培训
 export function fetchTrainingRecords(params = {}) {

@@ -285,13 +285,13 @@ router.get('/device-config', (req, res) => {
 // 实例列表：GET /maintenance/v2-plans
 // V1.1 惰性生成（B4）：日常点检按日、定期检查按年月，读取即自动出单（全量设备，去白名单）
 router.get('/v2-plans', (req, res) => {
-  // V1.5：列表返回前刷新状态，超期/顺延实时
+  // V1.5：列表返回前刷新状态，超期实时
   v2.refreshStatuses();
   const { projectType, status, deviceCode, year, month, date } = req.query;
   if (projectType === 'daily_check') {
     v2.generateDailyChecksForDate(date || require('../data/helpers').fmtDate(new Date()));
   }
-  let result = [...v2.generatedPlans];
+  let result = [...v2.generatedPlans].filter(p => !p.voided);
   if (projectType) result = result.filter(p => p.projectType === projectType);
   if (status) result = result.filter(p => p.status === status);
   if (deviceCode) result = result.filter(p => p.deviceCode === deviceCode);
@@ -439,14 +439,6 @@ router.put('/v2-plans/:id/reschedule', (req, res) => {
   } catch (e) { res.status(400).json({ success: false, error: e.message }); }
 });
 
-// 作废：PUT /maintenance/v2-plans/:id/void
-router.put('/v2-plans/:id/void', (req, res) => {
-  try {
-    const plan = v2.voidPlan(req.params.id, { reason: req.body.reason, by: CURRENT_USER.name });
-    res.json({ success: true, data: plan });
-  } catch (e) { res.status(400).json({ success: false, error: e.message }); }
-});
-
 // ===================== 培训（§5.3(5) 活动粒度） =====================
 router.get('/training-records', (req, res) => {
   let result = [...v2.trainingRecords];
@@ -528,10 +520,11 @@ router.get('/dashboard/kpi', (req, res) => {
   res.json({ success: true, data: v2.kpiDashboard(y, m) });
 });
 
-// V1.42 维保总览聚合（一次返回 统计卡/KPI/日历/超期预警/TOP5/分类分布/完成率/趋势，全部读 V2 generatedPlans）
+// V1.42 维保总览聚合（统计卡/KPI/日历/超期统计/TOP5/分类分布/完成率/趋势；数据权限与 v2-plans 列表同源）
 router.get('/dashboard/overview', (req, res) => {
   const { year, month } = req.query;
-  res.json({ success: true, data: v2.dashboardOverview(year, month) });
+  const codes = assignments.resolveVisibleCodes(getPersonnelById(curPersonnelId()));
+  res.json({ success: true, data: v2.dashboardOverview(year, month, { visibleCodes: codes }) });
 });
 
 // 台时补录：POST /maintenance/kpi/upsert

@@ -29,7 +29,7 @@ const createForm = reactive({
   deviceCode: '', deviceName: '', faultDesc: '', urgency: '普通', reporterName: '',
 })
 const urgencyOptions = ['普通', '紧急']
-const statusOptions = ['', '待执行', '进行中', '待验收', '已完成', '已超期', '已顺延', '已作废']
+const statusOptions = ['', '待执行', '进行中', '待验收', '已完成', '已超期']
 
 // V1.17：移除 08 设备维保门禁 —— 维修走独立流程，任何设备均可发起；安全交底改为手工填写
 const selectedDeviceInfo = ref(null)   // 当前选中设备对象

@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useDevicesStore } from '@/stores/devices'
 import { useToast } from '@/composables/useToast'
 import V2PlanDrawer from '@/components/maintenance/V2PlanDrawer.vue'
-import { fetchV2Plans, fetchDailyCheckReport, fetchDashboardKpi, generateV2Daily } from '@/api/maintenance'
+import { fetchV2Plans, fetchDailyCheckReport, generateV2Daily } from '@/api/maintenance'
 
 const devicesStore = useDevicesStore()
 const toast = useToast()
@@ -31,7 +31,6 @@ const reportDays = computed(() => (report.value?.periodDays || []).map(ds => {
 
 // ===================== 状态 =====================
 const loading = ref(false)
-const kpi = ref(null)          // 总体 KPI（fetchDashboardKpi）
 const todayChecks = ref([])    // 今日点检单（fetchV2Plans date=today）
 const report = ref(null)       // 单设备月报（fetchDailyCheckReport）
 const reportPlans = ref([])    // 周期内该设备全部点检单（构建点检项×日网格）
@@ -39,7 +38,26 @@ const selectedDevice = ref('')
 const activeTab = ref('today') // 'today' | 'report'
 
 // 状态配色（V1.30：今日点检列表「状态」列按状态着色；局部 map，不动共享 StatusTag）
-const statusType = { 待执行: 'warning', 进行中: 'primary', 已超期: 'danger', 已归档: 'success', 已顺延: 'info', 已作废: 'info' }
+const statusType = { 待执行: 'warning', 进行中: 'primary', 已超期: 'danger', 已归档: 'success', 已过期: 'info' }
+const isPastListDate = computed(() => listDate.value < todayStr.value)
+
+// 列表展示态：过去日期且未归档完成 → 已过期（后端仍保留 待执行/已超期）
+function displayStatus(row) {
+  if (isPastListDate.value && row.status !== '已归档' && row.status !== '进行中') return '已过期'
+  return row.status
+}
+
+// 班前/班后：过去日期一律不可操作；当日「待执行/进行中」可操作
+function canOperatePlan(row) {
+  if (isPastListDate.value) return false
+  if (row.status === '已归档') return false
+  return true
+}
+
+// 当日已归档：可点「详情」只读查看
+function canViewDetail(row) {
+  return !isPastListDate.value && row.status === '已归档'
+}
 
 // ===================== V1.60：开始执行时间 / 结束时间 =====================
 // 计划级 startedAt（首次提交）/ completedAt（归档）由后端 advanceStep 写入；旧单无字段回退步骤签名时间
@@ -96,7 +114,8 @@ const filteredChecks = computed(() => {
     list = list.filter(p => deviceTypeOf(p).startsWith(pre))
   }
   if (workshopFilter.value) list = list.filter(p => workshopOf(p) === workshopFilter.value)
-  if (statusFilter.value) list = list.filter(p => p.status === statusFilter.value)
+  if (statusFilter.value === '已过期') list = list.filter(p => displayStatus(p) === '已过期')
+  else if (statusFilter.value) list = list.filter(p => p.status === statusFilter.value)
   return list
 })
 
@@ -116,16 +135,8 @@ const checkDevices = computed(() => {
   return out
 })
 
-// ===================== 总体 KPI 卡片 =====================
-async function loadKpi() {
-  try {
-    const res = await fetchDashboardKpi({ year: currentYear.value, month: currentMonth.value })
-    kpi.value = res.data
-  } catch (e) { /* 静默 */ }
-}
-
-// ===================== V1.62b：月度报表月份驱动 KPI/报表；点检列表按所选日期拉取 =====================
-watch([currentYear, currentMonth], () => { loadKpi(); loadReport() })
+// ===================== V1.62b：月度报表月份驱动报表；点检列表按所选日期拉取 =====================
+watch([currentYear, currentMonth], () => { loadReport() })
 watch(listDate, () => loadTodayChecks())
 
 // ===================== 点检列表（V1.62b：按所选日期拉取，日期选择器可查历史某天） =====================
@@ -216,14 +227,9 @@ const deviceKpis = computed(() => [
   { label: '设备故障率', value: report.value?.faultRate ?? '—', unit: '%', color: '#f56c6c' },
   { label: '计划停运率', value: report.value?.plannedStopRate ?? '—', unit: '%', color: '#e6a23c' },
 ])
-const overallKpis = computed(() => [
-  { label: '总体完好率', value: kpi.value?.availability ?? '—', unit: '%', color: '#67c23a' },
-  { label: '总体利用率', value: kpi.value?.utilization ?? '—', unit: '%', color: '#1192E8' },
-  { label: '总体故障率', value: kpi.value?.faultRate ?? '—', unit: '%', color: '#f56c6c' },
-  { label: '计划停运率', value: kpi.value?.plannedStopRate ?? '—', unit: '%', color: '#e6a23c' },
-])
 
 function openPlan(plan) {
+  if (!canOperatePlan(plan) && !canViewDetail(plan)) return
   drawerPlanId.value = plan.id
   drawerRef.value?.open(plan.id)
 }
@@ -232,7 +238,7 @@ function onDone() { loadTodayChecks(); loadReport() }
 watch(selectedDevice, () => loadReport())
 
 onMounted(async () => {
-  await Promise.all([devicesStore.fetchList({ pageSize: 5000 }), loadKpi(), loadTodayChecks()])
+  await Promise.all([devicesStore.fetchList({ pageSize: 5000 }), loadTodayChecks()])
   if (selectedDevice.value) await loadReport()
 })
 </script>
@@ -256,7 +262,7 @@ onMounted(async () => {
           <el-option v-for="w in workshopOptions" :key="w" :label="w" :value="w" />
         </el-select>
         <el-select v-model="statusFilter" size="small" style="width:110px" clearable placeholder="全部状态">
-          <el-option v-for="s in Object.keys(statusType)" :key="s" :label="s" :value="s" />
+          <el-option v-for="s in ['待执行', '进行中', '已超期', '已归档', '已过期']" :key="s" :label="s" :value="s" />
         </el-select>
       </div>
       <div class="flex-1" />
@@ -267,23 +273,13 @@ onMounted(async () => {
       <span class="text-xs text-[#909399]">全量设备（配 02 点检标准即每天出单）· 日常点检按日历日逐日生成 · 班前检查 + 班后固定表单（台时）· 点检列表按日期选择查看某天 · 月度报表取数周期=所选月整月</span>
     </div>
 
-    <!-- 总体 KPI 卡片（§5.4） -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 px-3 py-2 bg-white border-b border-[#ebeef5] shrink-0">
-      <div v-for="k in overallKpis" :key="k.label" class="rounded-lg border border-[#ebeef5] bg-gradient-to-br from-white to-[#f7fafc] px-3 py-2 flex items-center gap-2">
-        <div class="text-xs text-[#909399]">{{ k.label }}</div>
-        <div class="flex-1 text-right">
-          <span class="text-lg font-bold" :style="{ color: k.color }">{{ k.value }}</span><span class="text-xs text-[#909399]"> {{ k.unit }}</span>
-        </div>
-      </div>
-    </div>
-
     <div class="flex flex-1 min-h-0">
       <!-- V1.62：点检列表（按所选年/月，可切换历史月） -->
       <div v-if="activeTab === 'today'" v-loading="loading" class="flex-1 overflow-auto p-3">
         <div class="flex items-center gap-2 mb-2">
           <span class="text-xs font-semibold text-[#606266]">{{ listDate }} 点检列表 · 共 {{ filteredChecks.length }} 台</span>
           <div class="flex-1" />
-          <span class="text-xs text-[#909399]">缺检红标 = 应点检未归档（班前/班后需提交后确认归档）</span>
+          <span class="text-xs text-[#909399]">过去日期：未完成显示「已过期」且不可操作；当日「进行中」可继续，「已归档」可点详情查阅</span>
         </div>
         <el-table :data="filteredChecks" size="small" border stripe empty-text="该日期暂无点检单（可点击「补生成」）">
           <!-- V1.60：点检编号列暂隐藏（保留代码，后续可恢复显示） -->
@@ -308,11 +304,13 @@ onMounted(async () => {
             <template #default="{ row }">{{ planEnd(row) }}</template>
           </el-table-column>
           <el-table-column label="状态" width="90">
-            <template #default="{ row }"><el-tag size="small" :type="statusType[row.status] || 'info'">{{ row.status }}</el-tag></template>
+            <template #default="{ row }"><el-tag size="small" :type="statusType[displayStatus(row)] || 'info'">{{ displayStatus(row) }}</el-tag></template>
           </el-table-column>
           <el-table-column label="操作" width="100" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link size="small" @click="openPlan(row)">班前/班后</el-button>
+              <el-button v-if="canOperatePlan(row)" type="primary" link size="small" @click="openPlan(row)">班前/班后</el-button>
+              <el-button v-else-if="canViewDetail(row)" type="primary" link size="small" @click="openPlan(row)">详情</el-button>
+              <span v-else class="text-xs text-[#c0c4cc]">—</span>
             </template>
           </el-table-column>
         </el-table>

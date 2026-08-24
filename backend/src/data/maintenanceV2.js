@@ -36,55 +36,23 @@ const DEMO_L1_ITEMS = [
   { seq: 14, category: '记录', content: '填写保养记录', standard: '记录完整、签字齐全' },
 ];
 
-// 演示状态种子：部分历史实例已完成归档，用于报表展示
-function seedDemoData() {
-  // 2026-01~2026-07 定期检查问题实例（演示报表）
-  const demoInspection = {
-    id: 'V2-PI-DEMO-001', projectType: 'periodic_inspection',
-    deviceCode: '16150201010001', deviceName: '通用桥式起重机', spec: 'G=40/20,S=46.5,H=16.9',
-    area: '曲组四车间第一区', dept: '分段一部',
-    assetClass: 'Bc', planDate: '2026-07-01', year: 2026, month: 7,
-    templateId: '02010106', templateVersion: 1, templateSource: '自定义',
-    labels: { name: '类别', standard: '检查标准' },
-    categories: [
-      { seq: 1, name: '钢结构', result: '达标', issue: '', handlingOpinion: '' },
-      { seq: 2, name: '机械', result: '超标', issue: '大车行走轮磨损超标', handlingOpinion: '列入维修计划（建议完成时限）' },
-      { seq: 3, name: '液压', result: '达标', issue: '', handlingOpinion: '' },
-      { seq: 4, name: '电气', result: '达标', issue: '', handlingOpinion: '' },
-      { seq: 5, name: '安全装置', result: '超标', issue: '起升限位器动作迟滞', handlingOpinion: '停机处理' },
-    ],
-    handlingOpinions: ['停机处理','列入维修计划（建议完成时限）','继续观察运行'],
-    steps: [
-      { seq: 1, name: '提交', action: '提交', role: 'mtPersonnel', status: 'done', signatures: [{ personnelId: 'p005', name: '陈志强', employeeId: '10001004', dept: '总装二部', roleId: 'mtLeader', roleName: '维保班长', date: '2026-07-01T09:00' }], date: '2026-07-01' },
-      { seq: 2, name: '确认', action: '确认', role: 'operator', status: 'done', signatures: [{ personnelId: 'p002', name: '张建国', employeeId: '10001001', dept: '总装一部', roleId: 'workshopDirector', roleName: '车间主任', date: '2026-07-01T09:30' }], date: '2026-07-01' },
-      { seq: 3, name: '验收', action: '验收', role: 'mtSupervisor', status: 'done', signatures: [{ personnelId: 'p015', name: '李琳', employeeId: '10007001', dept: '生产保障部', roleId: 'mtSupervisor', roleName: '维保主管', date: '2026-07-02T10:00' }], date: '2026-07-02' },
-      { seq: 4, name: '审核', action: '审核', role: 'mtDirector', status: 'done', signatures: [{ personnelId: 'p009', name: '周大伟', employeeId: '10001008', dept: '生产保障部', roleId: 'mtDirector', roleName: '维保主任', date: '2026-07-02T14:00' }], date: '2026-07-02' },
-      { seq: 5, name: '归档', action: '归档', role: 'archiver', status: 'done', signatures: [{ personnelId: 'p009', name: '周大伟', employeeId: '10001008', dept: '生产保障部', roleId: 'mtDirector', roleName: '维保主任', date: '2026-07-02T14:05' }], date: '2026-07-02' },
-    ],
-    status: '已归档', version: 1, source: 'generated',
-  };
-  generatedPlans.push(demoInspection);
+// 演示点检项（静态快照，不依赖当月模板内容是否已复制）
+const DEMO_DC_ITEMS = [
+  { seq: 1, project: '电源检查', content: '电源指示灯正常，电源开启正常' },
+  { seq: 2, project: '控制系统', content: '控制系统正常，操作杆灵敏可靠' },
+  { seq: 3, project: '制动装置', content: '制动可靠，无溜钩' },
+  { seq: 4, project: '钢丝绳', content: '外观无明显断丝、磨损超标' },
+  { seq: 5, project: '安全装置', content: '限位器、缓冲器动作可靠' },
+];
 
-  // 2026-06 一级保养已完成（演示）
-  const demoL1 = {
-    id: 'V2-L1-DEMO-001', projectType: 'level1',
-    deviceCode: '16150201010001', deviceName: '通用桥式起重机', spec: 'G=40/20,S=46.5,H=16.9',
-    area: '曲组四车间第一区', dept: '分段一部',
-    assetClass: 'Bc', planDate: '2026-03-01', year: 2026, month: 3,
-    templateId: '02010103', templateVersion: 1, templateSource: '自定义',
-    labels: { item: '类别', content: '内容', standard: '合格标准' },
-    items: DEMO_L1_ITEMS.map(i => ({ ...i, checked: true, remark: '' })),
-    steps: [
-      { seq: 1, name: '提交', action: '提交', role: 'operator', status: 'done', signatures: [{ personnelId: 'p002', name: '张建国', employeeId: '10001001', dept: '总装一部', roleId: 'workshopDirector', roleName: '车间主任', date: '2026-03-01T08:00' }], date: '2026-03-01' },
-      { seq: 2, name: '验收', action: '验收', role: 'opLeader', status: 'done', signatures: [{ personnelId: 'p004', name: '王海波', employeeId: '10001003', dept: '加工一部', roleId: 'opLeader', roleName: '操作班长', date: '2026-03-01T10:00' }], date: '2026-03-01' },
-      { seq: 3, name: '确认', action: '确认', role: 'opSupervisor', status: 'done', signatures: [{ personnelId: 'p001', name: '袁涛', employeeId: '10862253', dept: '精度部', roleId: 'admin', roleName: '系统管理员', date: '2026-03-01T11:00' }], date: '2026-03-01' },
-      { seq: 4, name: '归档', action: '归档', role: 'archiver', status: 'done', signatures: [{ personnelId: 'p009', name: '周大伟', employeeId: '10001008', dept: '生产保障部', roleId: 'mtDirector', roleName: '维保主任', date: '2026-03-01T15:00' }], date: '2026-03-01' },
-    ],
-    status: '已归档', version: 1, source: 'generated',
-  };
-  generatedPlans.push(demoL1);
-}
-seedDemoData();
+// 演示定期检查类别
+const DEMO_PI_CATEGORIES = [
+  { seq: 1, name: '钢结构', result: '', issue: '', handlingOpinion: '' },
+  { seq: 2, name: '机械', result: '', issue: '', handlingOpinion: '' },
+  { seq: 3, name: '液压', result: '', issue: '', handlingOpinion: '' },
+  { seq: 4, name: '电气', result: '', issue: '', handlingOpinion: '' },
+  { seq: 5, name: '安全装置', result: '', issue: '', handlingOpinion: '' },
+];
 
 // 签名审计快照（V1.22）：写时固存 姓名/工号/职务/时间，人员后续变更不影响已留痕记录
 function signatureSnapshot(user, extra) {
@@ -114,13 +82,10 @@ function monthlyPlanPeriodEnd(plan) {
 }
 
 function deriveStatus(plan) {
-  if (plan.voided) return '已作废';
   const allDone = plan.steps.every(s => s.status === 'done');
   if (allDone) return '已归档';
   const doneCount = plan.steps.filter(s => s.status === 'done').length;
   const current = plan.steps[doneCount];
-  // 维修停台顺延（§5.12 问题5）：设备在途维修工单 → 保养/检查实例顺延标记
-  if (plan.deferReason === '维修停台') return '已顺延';
   // 超期判定；维修为临时工单不按时间判超期
   if (current && !plan.dateExtended && plan.projectType !== 'repair') {
     if (MONTHLY_MAINT_TYPES.includes(plan.projectType)) {
@@ -140,25 +105,10 @@ function deriveStatus(plan) {
   return '进行中';
 }
 
-// 是否有在途维修（旧 workOrders + V2 repair 实例，§5.12 问题5）
-function hasInflightRepair(deviceCode) {
-  const wos = require('./maintenance').workOrders;
-  const inflight = w => w.status !== '已完成' && w.status !== '已归档' && w.status !== '已关闭';
-  if (wos.find(w => w.deviceCode === deviceCode && inflight(w))) return true;
-  return generatedPlans.some(p => p.projectType === 'repair' && p.deviceCode === deviceCode && !p.voided && p.status !== '已归档');
-}
-
-// 刷新全部实例状态（超期/顺延/紧急超时自动标记）
+// 刷新全部实例状态（超期/紧急超时自动标记）
 function refreshStatuses() {
   generatedPlans.forEach(p => {
     if (p.voided || p.status === '已归档') return;
-    // §5.12 问题5：维修停台期间保养/定期检查自动顺延；工单完工释放
-    if ((p.projectType === 'level1' || p.projectType === 'level2' || p.projectType === 'lubrication' || p.projectType === 'periodic_inspection')
-        && hasInflightRepair(p.deviceCode) && !p.deferReason) {
-      p.deferReason = '维修停台'; p.deferDate = fmtDate(new Date());
-    } else if (p.deferReason === '维修停台' && !hasInflightRepair(p.deviceCode)) {
-      delete p.deferReason; delete p.deferDate;
-    }
     // §5.12 问题8：紧急维修 24h 未补全流程 → 超时红标
     if (p.projectType === 'repair' && p.repairData && p.repairData.emergency && p.createdAt) {
       const created = new Date(p.createdAt);
@@ -166,7 +116,6 @@ function refreshStatuses() {
     }
     p.status = deriveStatus(p);
   });
-  markOverdueRectifications();
 }
 
 // ===================== 整改跟踪（§5.10 问题7 闭环） =====================
@@ -207,6 +156,252 @@ function buildSteps(projectType, date) {
     status: 'pending', signatures: [], date: null,
   }));
 }
+
+// 演示种子签名（固定人员，便于报表/流程页展示）
+const DEMO_SIG_BY_ROLE = {
+  operator:         { personnelId: 'p002', name: '张建国', employeeId: '10001001', dept: '总装一部', roleId: 'workshopDirector', roleName: '车间主任' },
+  opLeader:         { personnelId: 'p004', name: '王海波', employeeId: '10001003', dept: '加工一部', roleId: 'opLeader', roleName: '操作班长' },
+  opSupervisor:     { personnelId: 'p001', name: '袁涛', employeeId: '10862253', dept: '精度部', roleId: 'admin', roleName: '系统管理员' },
+  mtPersonnel:      { personnelId: 'p005', name: '陈志强', employeeId: '10001004', dept: '总装二部', roleId: 'mtLeader', roleName: '维保班长' },
+  mtLeader:         { personnelId: 'p005', name: '陈志强', employeeId: '10001004', dept: '总装二部', roleId: 'mtLeader', roleName: '维保班长' },
+  mtSupervisor:     { personnelId: 'p015', name: '李琳', employeeId: '10007001', dept: '生产保障部', roleId: 'mtSupervisor', roleName: '维保主管' },
+  mtDirector:       { personnelId: 'p009', name: '周大伟', employeeId: '10001008', dept: '生产保障部', roleId: 'mtDirector', roleName: '维保主任' },
+  workshopDirector: { personnelId: 'p002', name: '张建国', employeeId: '10001001', dept: '总装一部', roleId: 'workshopDirector', roleName: '车间主任' },
+  archiver:         { personnelId: 'p009', name: '周大伟', employeeId: '10001008', dept: '生产保障部', roleId: 'mtDirector', roleName: '维保主任' },
+};
+
+function demoMonthEnd(year, month) {
+  const last = new Date(year, month, 0).getDate();
+  return year + '-' + String(month).padStart(2, '0') + '-' + String(last).padStart(2, '0');
+}
+
+function demoSteps(projectType, doneCount, dateStr) {
+  return mc.PROJECT_TYPES[projectType].steps.map((s, idx) => {
+    const done = idx < doneCount;
+    const base = DEMO_SIG_BY_ROLE[s.role] || DEMO_SIG_BY_ROLE.operator;
+    return {
+      seq: s.seq, name: s.name, action: s.action, role: s.role,
+      status: done ? 'done' : 'pending',
+      signatures: done ? [{ ...base, date: dateStr + 'T' + String(8 + idx).padStart(2, '0') + ':00' }] : [],
+      date: done ? dateStr : null,
+    };
+  });
+}
+
+function demoDevice(code) {
+  const d = devices.find(x => x.code === code) || {};
+  return {
+    deviceCode: code,
+    deviceName: d.name || '通用桥式起重机',
+    spec: d.spec || 'G=40/20,S=46.5,H=16.9',
+    area: d.area || '曲组四车间第一区',
+    dept: d.department || d.dept || '分段一部',
+    assetClass: (d.code && mc.getDeviceConfig(d)?.assetClass) || 'Bc',
+  };
+}
+
+function pushDemoPlan(plan) {
+  generatedPlans.push(plan);
+  return plan;
+}
+
+// 演示状态种子：2026-03~07 覆盖点检/一二级保养/润滑/定期检查/维修，及 待执行/进行中/已超期/已归档
+function seedDemoData() {
+  // 复制 8 月标准到 3~7 月，便于切换月份时 KPI/点检报表有生效模板（幂等：已有则跳过）
+  ['2026-03', '2026-04', '2026-05', '2026-06', '2026-07'].forEach(m => {
+    ['02', '03', '04', '06'].forEach(fc => {
+      if (!mc.getTemplateRecord('020101', fc, m)) {
+        mc.copyTemplateRecord('020101', fc, '2026-08', m);
+      }
+    });
+  });
+
+  const D1 = '16150201010001';
+  const D2 = '16150201010002';
+  const D3 = '16150201010003';
+  const D4 = '16150201010004';
+  const D5 = '16150201010005';
+
+  function basePlan(id, projectType, deviceCode, planDate, extra) {
+    const y = parseInt(planDate.substring(0, 4), 10);
+    const m = parseInt(planDate.substring(5, 7), 10);
+    const fileCode = mc.PROJECT_TYPES[projectType].fileCode;
+    return Object.assign({
+      id, projectType, ...demoDevice(deviceCode),
+      planDate, year: y, month: m,
+      periodUntil: demoMonthEnd(y, m),
+      templateId: '020101' + fileCode, templateVersion: 1, templateSource: '自定义',
+      status: '待执行', version: 1, source: 'generated', voided: false, dateExtended: false,
+    }, extra);
+  }
+
+  // ---- 日常点检 ----
+  function seedDaily(id, deviceCode, planDate, { doneCount, dateExtended, itemsState, afterShift }) {
+    const states = itemsState || DEMO_DC_ITEMS.map(() => '正常');
+    pushDemoPlan(basePlan(id, 'daily_check', deviceCode, planDate, {
+      checkNo: planDate.replace(/-/g, '') + id.slice(-6).replace(/\D/g, '').padStart(6, '0').slice(-6),
+      labels: { item: '项目', content: '检查保养内容' },
+      items: DEMO_DC_ITEMS.map((it, i) => ({ ...it, state: states[i] || '正常', remark: '', handled: states[i] === '异常' ? false : undefined })),
+      afterShiftItems: [],
+      afterShift: afterShift || { runHours: 7.5, faultStopHours: 0.5, planStopHours: 0 },
+      steps: demoSteps('daily_check', doneCount, planDate),
+      dateExtended: !!dateExtended,
+      status: doneCount >= 4 ? '已归档' : '待执行',
+    }));
+  }
+
+  // ---- 月度保养（一级/二级/润滑） ----
+  function seedMaint(id, projectType, deviceCode, planDate, { doneCount, dateExtended, allChecked }) {
+    const checked = allChecked !== false;
+    pushDemoPlan(basePlan(id, projectType, deviceCode, planDate, {
+      labels: { item: '类别', content: '内容', standard: '合格标准' },
+      items: DEMO_L1_ITEMS.map(i => ({ ...i, checked, remark: '' })),
+      steps: demoSteps(projectType, doneCount, planDate),
+      dateExtended: !!dateExtended,
+      status: doneCount >= mc.PROJECT_TYPES[projectType].steps.length ? '已归档' : '待执行',
+    }));
+  }
+
+  // ---- 定期检查 ----
+  function seedPI(id, deviceCode, planDate, { doneCount, dateExtended, categories }) {
+    pushDemoPlan(basePlan(id, 'periodic_inspection', deviceCode, planDate, {
+      labels: { name: '类别', standard: '检查标准' },
+      categories: (categories || DEMO_PI_CATEGORIES).map(c => ({ ...c })),
+      handlingOpinions: ['停机处理', '列入维修计划（建议完成时限）', '继续观察运行'],
+      steps: demoSteps('periodic_inspection', doneCount, planDate),
+      dateExtended: !!dateExtended,
+      status: doneCount >= 5 ? '已归档' : '待执行',
+    }));
+  }
+
+  // ---- 维修 ----
+  function seedRepair(id, deviceCode, planDate, { doneCount, emergency, flowTimeout, createdAt, faultDesc }) {
+    pushDemoPlan(basePlan(id, 'repair', deviceCode, planDate, {
+      templateId: null, templateVersion: 0, templateSource: '',
+      createdAt: createdAt || planDate,
+      source: 'manual',
+      steps: demoSteps('repair', doneCount, planDate),
+      status: doneCount >= 6 ? '已归档' : '待执行',
+      flowTimeout: !!flowTimeout,
+      repairData: {
+        faultDesc: faultDesc || '演示故障：制动器异响',
+        faultTime: planDate + ' 08:30',
+        urgency: emergency ? '紧急' : '普通',
+        emergency: !!emergency,
+        sourceType: '', sourceId: '',
+        reporter: 'p002', assignee: 'p005', assigneeName: '陈志强',
+        safety4: { areaNotified: true, powerOff: true, warningSet: true, dangerWork: false },
+        dangerTickets: [], safetyBriefing: '演示安全交底',
+        diagnosis: '制动片磨损', repairContent: '更换制动片', spareParts: '制动片×2', remainingIssue: '',
+        testNoLoad: '正常', testLoad: '正常', testAbnormalDesc: '',
+        startTime: planDate + ' 09:00', endTime: planDate + ' 11:30',
+        faultReason: '磨损', stopType: '故障停台', testResult: '合格', abnormalDesc: '',
+        faultStopHours: 2.5,
+      },
+    }));
+  }
+
+  // ========== 3 月：已归档 / 已超期 / 进行中 / 待执行 ==========
+  seedMaint('V2-L1-DEMO-001', 'level1', D1, '2026-03-01', { doneCount: 4 }); // 已归档（保留原演示单）
+  seedMaint('V2-L1-DEMO-0302', 'level1', D2, '2026-03-01', { doneCount: 1 }); // 已超期（历史月未完成）
+  seedMaint('V2-L2-DEMO-0301', 'level2', D3, '2026-03-01', { doneCount: 2, dateExtended: true }); // 进行中（延期未关）
+  seedDaily('V2-DC-DEMO-0305', D1, '2026-03-05', { doneCount: 4, afterShift: { runHours: 8, faultStopHours: 0, planStopHours: 0 } });
+  seedDaily('V2-DC-DEMO-0312', D1, '2026-03-12', { doneCount: 4, itemsState: ['正常', '异常', '正常', '正常', '正常'], afterShift: { runHours: 6, faultStopHours: 2, planStopHours: 0 } });
+  seedDaily('V2-DC-DEMO-0320', D2, '2026-03-20', { doneCount: 1 }); // 已超期点检
+  seedPI('V2-PI-DEMO-0301', D4, '2026-03-15', { doneCount: 0, dateExtended: true }); // 待执行
+  seedRepair('20260318000001', D1, '2026-03-18', { doneCount: 6, faultDesc: '起升机构异响（3月演示归档）' });
+
+  // ========== 4 月 ==========
+  seedMaint('V2-L2-DEMO-0401', 'level2', D1, '2026-04-01', { doneCount: 5 }); // 已归档
+  seedMaint('V2-L1-DEMO-0401', 'level1', D2, '2026-04-01', { doneCount: 2, dateExtended: true }); // 进行中
+  seedMaint('V2-LUB-DEMO-0401', 'lubrication', D3, '2026-04-01', { doneCount: 0, dateExtended: true }); // 待执行
+  seedDaily('V2-DC-DEMO-0408', D1, '2026-04-08', { doneCount: 4, afterShift: { runHours: 7, faultStopHours: 0.5, planStopHours: 0.5 } });
+  seedDaily('V2-DC-DEMO-0415', D2, '2026-04-15', { doneCount: 4 });
+  seedDaily('V2-DC-DEMO-0422', D3, '2026-04-22', { doneCount: 2 }); // 已超期
+  seedPI('V2-PI-DEMO-0401', D1, '2026-04-10', { doneCount: 1 }); // 已超期检查
+  seedRepair('20260412000001', D2, '2026-04-12', { doneCount: 3, emergency: true, createdAt: '2026-04-12', flowTimeout: true, faultDesc: '紧急：限位器失效（4月演示超时）' });
+
+  // ========== 5 月 ==========
+  seedMaint('V2-L1-DEMO-0501', 'level1', D1, '2026-05-01', { doneCount: 4 });
+  seedMaint('V2-L2-DEMO-0501', 'level2', D2, '2026-05-01', { doneCount: 1 }); // 已超期
+  seedMaint('V2-LUB-DEMO-0501', 'lubrication', D4, '2026-05-01', { doneCount: 3, dateExtended: true }); // 进行中
+  seedDaily('V2-DC-DEMO-0506', D1, '2026-05-06', { doneCount: 4, afterShift: { runHours: 8, faultStopHours: 0, planStopHours: 0 } });
+  seedDaily('V2-DC-DEMO-0518', D2, '2026-05-18', { doneCount: 4, afterShift: { runHours: 5, faultStopHours: 1, planStopHours: 2 } });
+  seedDaily('V2-DC-DEMO-0525', D5, '2026-05-25', { doneCount: 0 }); // 已超期
+  seedPI('V2-PI-DEMO-0501', D3, '2026-05-20', {
+    doneCount: 5,
+    categories: [
+      { seq: 1, name: '钢结构', result: '达标', issue: '', handlingOpinion: '' },
+      { seq: 2, name: '机械', result: '达标', issue: '', handlingOpinion: '' },
+      { seq: 3, name: '液压', result: '超标', issue: '液压油渗漏', handlingOpinion: '列入维修计划（建议完成时限）' },
+      { seq: 4, name: '电气', result: '达标', issue: '', handlingOpinion: '' },
+      { seq: 5, name: '安全装置', result: '达标', issue: '', handlingOpinion: '' },
+    ],
+  });
+  seedRepair('20260510000001', D3, '2026-05-10', { doneCount: 2, faultDesc: '大车跑偏（5月演示进行中）' });
+
+  // ========== 6 月 ==========
+  seedMaint('V2-L1-DEMO-0601', 'level1', D1, '2026-06-01', { doneCount: 0, dateExtended: true }); // 待执行
+  seedMaint('V2-LUB-DEMO-0601', 'lubrication', D2, '2026-06-01', { doneCount: 5 }); // 已归档
+  seedMaint('V2-L2-DEMO-0601', 'level2', D4, '2026-06-01', { doneCount: 2 }); // 已超期
+  seedDaily('V2-DC-DEMO-0603', D1, '2026-06-03', { doneCount: 4, afterShift: { runHours: 7.5, faultStopHours: 0.2, planStopHours: 0.3 } });
+  seedDaily('V2-DC-DEMO-0610', D2, '2026-06-10', { doneCount: 4 });
+  seedDaily('V2-DC-DEMO-0619', D3, '2026-06-19', { doneCount: 3, dateExtended: true }); // 进行中
+  seedPI('V2-PI-DEMO-0601', D5, '2026-06-08', { doneCount: 0, dateExtended: true }); // 待执行
+  seedRepair('20260615000001', D1, '2026-06-15', { doneCount: 6, faultDesc: '电气柜过热（6月演示归档）' });
+
+  // ========== 7 月 ==========
+  seedPI('V2-PI-DEMO-001', D1, '2026-07-01', {
+    doneCount: 5,
+    categories: [
+      { seq: 1, name: '钢结构', result: '达标', issue: '', handlingOpinion: '' },
+      { seq: 2, name: '机械', result: '超标', issue: '大车行走轮磨损超标', handlingOpinion: '列入维修计划（建议完成时限）' },
+      { seq: 3, name: '液压', result: '达标', issue: '', handlingOpinion: '' },
+      { seq: 4, name: '电气', result: '达标', issue: '', handlingOpinion: '' },
+      { seq: 5, name: '安全装置', result: '超标', issue: '起升限位器动作迟滞', handlingOpinion: '停机处理' },
+    ],
+  });
+  seedMaint('V2-L2-DEMO-0701', 'level2', D2, '2026-07-01', { doneCount: 3, dateExtended: true }); // 进行中
+  seedMaint('V2-L1-DEMO-0701', 'level1', D3, '2026-07-01', { doneCount: 1 }); // 已超期
+  seedMaint('V2-LUB-DEMO-0701', 'lubrication', D1, '2026-07-01', { doneCount: 5 }); // 已归档
+  seedDaily('V2-DC-DEMO-0707', D1, '2026-07-07', { doneCount: 4, afterShift: { runHours: 8, faultStopHours: 0, planStopHours: 0 } });
+  seedDaily('V2-DC-DEMO-0714', D2, '2026-07-14', { doneCount: 4, itemsState: ['正常', '正常', '异常', '正常', '正常'], afterShift: { runHours: 6.5, faultStopHours: 1.5, planStopHours: 0 } });
+  seedDaily('V2-DC-DEMO-0728', D4, '2026-07-28', { doneCount: 1 }); // 已超期
+  seedRepair('20260720000001', D4, '2026-07-20', { doneCount: 1, faultDesc: '吊钩磨损待换（7月演示待执行）' });
+
+  // 台时补录：让 3~7 月 KPI（利用率/故障率等）非空
+  const kpiSeed = [
+    [D1, '2026-03-05', { runHours: 8, faultStopHours: 0, planStopHours: 0 }],
+    [D1, '2026-03-12', { runHours: 6, faultStopHours: 2, planStopHours: 0 }],
+    [D1, '2026-03-18', { runHours: 5, faultStopHours: 2.5, planStopHours: 0.5 }],
+    [D2, '2026-03-10', { runHours: 7, faultStopHours: 0.5, planStopHours: 0.5 }],
+    [D1, '2026-04-08', { runHours: 7, faultStopHours: 0.5, planStopHours: 0.5 }],
+    [D2, '2026-04-15', { runHours: 8, faultStopHours: 0, planStopHours: 0 }],
+    [D3, '2026-04-20', { runHours: 6, faultStopHours: 1, planStopHours: 1 }],
+    [D1, '2026-05-06', { runHours: 8, faultStopHours: 0, planStopHours: 0 }],
+    [D2, '2026-05-18', { runHours: 5, faultStopHours: 1, planStopHours: 2 }],
+    [D3, '2026-05-10', { runHours: 4, faultStopHours: 3, planStopHours: 1 }],
+    [D1, '2026-06-03', { runHours: 7.5, faultStopHours: 0.2, planStopHours: 0.3 }],
+    [D2, '2026-06-10', { runHours: 8, faultStopHours: 0, planStopHours: 0 }],
+    [D1, '2026-06-15', { runHours: 5, faultStopHours: 2.5, planStopHours: 0.5 }],
+    [D1, '2026-07-07', { runHours: 8, faultStopHours: 0, planStopHours: 0 }],
+    [D2, '2026-07-14', { runHours: 6.5, faultStopHours: 1.5, planStopHours: 0 }],
+    [D4, '2026-07-20', { runHours: 7, faultStopHours: 0.5, planStopHours: 0.5 }],
+  ];
+  kpiSeed.forEach(([code, date, hours], i) => {
+    kpiRecords.push({
+      id: 'KPI-DEMO-' + String(i + 1).padStart(3, '0'),
+      deviceCode: code, date,
+      year: parseInt(date.substring(0, 4), 10),
+      month: parseInt(date.substring(5, 7), 10),
+      meterSource: 'demo',
+      ...hours,
+    });
+  });
+
+  refreshStatuses();
+}
+seedDemoData();
 
 // 枚举 YYYY-MM-DD 起止每一天（含首尾），供报表按整月取数（V1.57 起仅整月 ≤31 天，无截断）
 function enumerateDays(from, to) {
@@ -484,7 +679,7 @@ function freezeDeviceInstances(deviceCode) {
   let n = 0;
   generatedPlans.forEach(p => {
     if (p.deviceCode === deviceCode && !p.voided && p.status !== '已归档') {
-      p.voided = true; p.status = '已作废';
+      p.voided = true;
       p.voidLog = { reason: '设备停用冻结', date: fmtDate(new Date()) };
       n++;
     }
@@ -548,6 +743,10 @@ function advanceStep(planId, stepNo, payload) {
   if (!plan) throw new Error('计划不存在');
   if (plan.voided) throw new Error('计划已作废');
   if (plan.status === '已归档') throw new Error('计划已归档');
+  // 日常点检：计划日已过去不可继续提交（列表侧展示为「已过期」）
+  if (plan.projectType === 'daily_check' && plan.planDate < fmtDate(new Date())) {
+    throw new Error('403:该点检日已过期，无法继续操作');
+  }
   // 乐观锁（§5.2 并发控制）
   if (payload.version !== undefined && payload.version !== plan.version) {
     throw new Error('409:数据已变更，请刷新后重试');
@@ -696,24 +895,6 @@ function reschedulePlan(planId, newDate, payload) {
     delete plan.together;
   }
   plan.version += 1;
-  return plan;
-}
-
-// 作废（§5.2 定稿）：需审批留痕；完成率分子剔除但计入计划数
-function voidPlan(planId, payload) {
-  const plan = generatedPlans.find(p => p.id === planId);
-  if (!plan) throw new Error('计划不存在');
-  if (plan.status === '已归档') throw new Error('已归档计划不可作废');
-  plan.voided = true;
-  plan.voidLog = { reason: payload.reason || '', by: payload.by || '', date: fmtDate(new Date()) };
-  plan.version += 1;
-  plan.status = '已作废';
-  // together 联合单一方作废 → 自动解除标记（§5.12 问题6）
-  if (plan.together && plan.together.relatedPlanId) {
-    const other = generatedPlans.find(p => p.id === plan.together.relatedPlanId);
-    if (other && other.together) { delete other.together; other.splitLog = other.splitLog || []; other.splitLog.push({ reason: '联合单拆分：' + plan.id + ' 作废', date: fmtDate(new Date()) }); }
-    delete plan.together;
-  }
   return plan;
 }
 
@@ -868,13 +1049,14 @@ function repairFaultStopHours(rd) {
 
 
 // KPI 总览（§5.4：总体设备完好率/利用率/故障率/计划停运率）
-function kpiDashboard(year, month) {
+function kpiDashboard(year, month, visibleCodes) {
   // V1.1 全量设备生效：参与点检的设备 = 小类配 02 点检模板的设备（未配不参与，§5.7 定稿）
   // V1.57：按目标月该设备 02 标准记录判定（该月未配 02 → 不参与、dailyCheckReport 返 null 不贡献）
   const y = parseInt(year) || new Date().getFullYear();
   const m = parseInt(month) || new Date().getMonth() + 1;
   const monthStr = mc.monthKey(y, m);
-  const checkDevices = devices.filter(d => mc.isTemplateEffective(mc.resolveTemplate(d.typeCode, '02', monthStr).content));
+  const inScope = code => !visibleCodes || visibleCodes.has(code);
+  let checkDevices = devices.filter(d => inScope(d.code) && mc.isTemplateEffective(mc.resolveTemplate(d.typeCode, '02', monthStr).content));
   let runH = 0, faultH = 0, planH = 0, healthy = 0, daysIn = 0;
   checkDevices.forEach(d => {
     const rep = dailyCheckReport(d.code, year, month);
@@ -897,36 +1079,71 @@ function kpiDashboard(year, month) {
 }
 
 // ===================== 维保总览聚合（V1.42，全部读 V2 generatedPlans） =====================
-// 供 GET /maintenance/dashboard/overview 使用；一次返回 统计卡/KPI/日历/超期预警/TOP5/分类分布/完成率/趋势。
-// 口径：统计卡按「计划月」（plan.year/month 匹配）；超期预警=当月已超期保养/检查 + 全局已超期整改；
-// TOP5=当月按 dept 聚合单数；分类分布=台账全量设备按大类 + 参与台数（配 02 点检模板，同 kpiDashboard 口径）；
-// 完成率=当月 level1/2/lub 已归档 ÷ 计划数（作废计入分母，与 LevelTaskView 月度报表口径一致）；
-// 趋势=近 6 个月（含当月）kpiDashboard 四指标。
-function dashboardOverview(year, month) {
+// 供 GET /maintenance/dashboard/overview 使用；一次返回 统计卡/KPI/日历/超期统计/TOP5/分类分布/完成率/趋势。
+// 口径：统计卡=各模块总数/已完成/未完成；超期统计=当月已超期保养/检查（不含点检）；TOP5=当月按 dept 聚合（不含日常点检）；
+// 完成率=当月 level1/2/lub 已归档 ÷ 计划数；趋势=近 6 月 kpiDashboard 四指标。
+// opts.visibleCodes：数据权限设备集合（与 v2-plans 列表同源）；null/undefined=全量。
+function dashboardOverview(year, month, opts = {}) {
+  const visibleCodes = opts.visibleCodes;
+  const inScope = code => !visibleCodes || visibleCodes.has(code);
+
   refreshStatuses();
   const y = parseInt(year) || new Date().getFullYear();
   const m = parseInt(month) || new Date().getMonth() + 1;
   const planStatuses = ['level1', 'level2', 'lubrication'];
-  const doneTypes = ['level1', 'level2', 'lubrication', 'daily_check', 'periodic_inspection', 'repair'];
-  const monthPlans = generatedPlans.filter(p => !p.voided && p.year === y && p.month === m);
-  const isCare = s => s === '待执行' || s === '进行中' || s === '已超期';
+  const monthPlans = generatedPlans.filter(p => !p.voided && p.year === y && p.month === m && inScope(p.deviceCode));
   const TYPE_MAP = { level1: '保养', level2: '保养', lubrication: '润滑', daily_check: '点检', periodic_inspection: '检查', repair: '维修' };
+  const today = fmtDate(new Date());
+  const monthStr = mc.monthKey(y, m);
 
-  // ---- 5 统计卡 ----
-  const pendingPlans = monthPlans.filter(p => planStatuses.includes(p.projectType) && isCare(p.status)).length;
-  const pendingInspections = monthPlans.filter(p => p.projectType === 'periodic_inspection' && isCare(p.status)).length;
-  // 待派工：repair 且指派步(seq2)未 done（V1.38 报修步自动完成，故 seq2 未 done = 等指派）
-  const pendingDispatch = monthPlans.filter(p => {
-    if (p.projectType !== 'repair') return false;
-    const s2 = (p.steps || []).find(s => s.seq === 2);
-    return s2 ? s2.status !== 'done' : p.status !== '已归档';
-  }).length;
-  const overduePlan = monthPlans.filter(p => p.status === '已超期' && (planStatuses.includes(p.projectType) || p.projectType === 'periodic_inspection'));
-  const overdue = overduePlan.length;
-  const completed = monthPlans.filter(p => p.status === '已归档' && doneTypes.includes(p.projectType)).length;
-  const stats = { pendingPlans, pendingInspections, pendingDispatch, overdue, completed };
+  // 今日点检惰性生成（与列表页一致）
+  generateDailyChecksForDate(today);
 
-  // ---- 日历事件（当月全部计划，projectType 供前端按 6 类着色：日常点检/一二级保养/设备润滑/定期检查/维修） ----
+  // 缺检累计 = 各设备 missedDays 之和（台·日）；不含今天——今日进度由 dailyCheckToday 展示
+  let missedCheckDays = 0;
+  devices.filter(d => inScope(d.code) && mc.isTemplateEffective(mc.resolveTemplate(d.typeCode, '02', monthStr).content))
+    .forEach(d => {
+      const rep = dailyCheckReport(d.code, year, month);
+      if (rep?.missedDays) missedCheckDays += rep.missedDays.filter(ds => ds < today).length;
+    });
+
+  const emergencyRepairTimeout = monthPlans.filter(p => p.projectType === 'repair' && p.flowTimeout).length;
+
+  // ---- 业务统计卡：按模块进度（总数 / 已完成 / 未完成）----
+  // 已完成=已归档；未完成=待执行+进行中+已超期；总数=已完成+未完成
+  const moduleProgress = (plans) => {
+    const total = plans.length;
+    const done = plans.filter(p => p.status === '已归档').length;
+    return { total, done, pending: total - done };
+  };
+  const todayDailyPlans = generatedPlans.filter(p =>
+    p.projectType === 'daily_check' && p.planDate === today && !p.voided && inScope(p.deviceCode)
+  );
+  const maintMonthPlans = monthPlans.filter(p => planStatuses.includes(p.projectType));
+  const inspMonthPlans = monthPlans.filter(p => p.projectType === 'periodic_inspection');
+  const repairMonthPlans = monthPlans.filter(p => p.projectType === 'repair');
+  const overdueMaintInspect = monthPlans.filter(p => p.status === '已超期' && (planStatuses.includes(p.projectType) || p.projectType === 'periodic_inspection'));
+  const stats = {
+    dailyCheckToday: moduleProgress(todayDailyPlans),
+    maintenance: {
+      ...moduleProgress(maintMonthPlans),
+      detail: {
+        level1: moduleProgress(maintMonthPlans.filter(p => p.projectType === 'level1')),
+        level2: moduleProgress(maintMonthPlans.filter(p => p.projectType === 'level2')),
+        lubrication: moduleProgress(maintMonthPlans.filter(p => p.projectType === 'lubrication')),
+      },
+    },
+    inspection: moduleProgress(inspMonthPlans),
+    repair: moduleProgress(repairMonthPlans),
+    missedCheckDays,
+    emergencyRepairTimeout,
+  };
+
+  // 超期天数锚点：保养类按执行期结束日，其余按计划日
+  const overdueAnchor = p => planStatuses.includes(p.projectType) ? monthlyPlanPeriodEnd(p) : p.planDate;
+  const overdueDaysOf = p => Math.max(0, Math.floor((new Date(today) - new Date(overdueAnchor(p))) / 86400000));
+
+  // ---- 日历事件（当月全部计划，projectType 供前端按 6 类着色） ----
   const calendar = monthPlans.map(p => ({
     id: p.id, date: p.planDate, deviceName: p.deviceName,
     projectType: p.projectType,
@@ -935,40 +1152,40 @@ function dashboardOverview(year, month) {
     status: p.status,
   }));
 
-  // ---- 超期预警（当月保养/检查超期；不再含整改超期） ----
-  const today = fmtDate(new Date());
-  const overdueDays = ds => Math.max(0, Math.floor((new Date(today) - new Date(ds)) / 86400000));
-  const planOverdue = overduePlan.map(p => ({
+  // ---- 超期统计（保养/检查；不含点检、不含整改） ----
+  const mapOverdue = p => ({
     type: p.projectType === 'periodic_inspection' ? '检查' : '保养',
     deviceCode: p.deviceCode, deviceName: p.deviceName, dept: p.dept, planDate: p.planDate,
-    overdueDays: overdueDays(p.planDate),
-  }));
+    overdueDays: overdueDaysOf(p),
+  });
+  const planOverdue = overdueMaintInspect.map(mapOverdue);
   const overdueList = { plan: planOverdue, rect: [] };
 
-  // ---- 工作量 TOP5（当月按部门聚合单数） ----
+  // ---- 工作量 TOP5（当月按部门；不含日常点检，避免点检量淹没保养/维修） ----
   const deptCounts = {};
-  monthPlans.forEach(p => { if (p.dept) deptCounts[p.dept] = (deptCounts[p.dept] || 0) + 1; });
+  monthPlans.filter(p => p.projectType !== 'daily_check').forEach(p => {
+    if (p.dept) deptCounts[p.dept] = (deptCounts[p.dept] || 0) + 1;
+  });
   const topDepts = Object.entries(deptCounts).map(([dept, count]) => ({ dept, count }))
     .sort((a, b) => b.count - a.count).slice(0, 5);
 
-  // ---- 设备分类分布（台账大类；参与台数=配 02 点检模板，同 kpiDashboard 口径） ----
+  // ---- 设备分类分布（台账大类；参与台数=配 02 点检模板） ----
   const catMap = {};
   devices.forEach(d => {
+    if (!inScope(d.code)) return;
     const cat = (d.type || '').split('/')[0] || '其他';
     if (!catMap[cat]) catMap[cat] = { total: 0, participating: 0 };
     catMap[cat].total++;
-    if (mc.resolveTemplate(d.typeCode, '02', mc.monthKey(y, m)).content) catMap[cat].participating++;
+    if (mc.resolveTemplate(d.typeCode, '02', monthStr).content) catMap[cat].participating++;
   });
   const categoryDistribution = Object.entries(catMap)
     .map(([category, v]) => ({ category, total: v.total, participating: v.participating }))
     .sort((a, b) => b.total - a.total);
 
-  // ---- 保养完成率环（当月 level1/2/lub：已归档 ÷ 计划数，作废计入分母） ----
-  const maintPlans = monthPlans.filter(p => planStatuses.includes(p.projectType));
-  const doneMaint = maintPlans.filter(p => p.status === '已归档').length;
+  // ---- 保养完成率环（当月 level1/2/lub：已归档 ÷ 计划数） ----
   const completionRate = {
-    done: doneMaint, total: maintPlans.length,
-    rate: maintPlans.length ? Number((doneMaint / maintPlans.length * 100).toFixed(1)) : 0,
+    done: stats.maintenance.done, total: stats.maintenance.total,
+    rate: stats.maintenance.total ? Number((stats.maintenance.done / stats.maintenance.total * 100).toFixed(1)) : 0,
   };
 
   // ---- 月度趋势（近 6 月含当月，kpiDashboard 按月循环，跨年递减） ----
@@ -976,11 +1193,11 @@ function dashboardOverview(year, month) {
   for (let i = 5; i >= 0; i--) {
     let yy = y, mm = m - i;
     while (mm <= 0) { mm += 12; yy--; }
-    const k = kpiDashboard(yy, mm);
+    const k = kpiDashboard(yy, mm, visibleCodes);
     trend.push({ year: yy, month: mm, availability: k.availability, utilization: k.utilization, faultRate: k.faultRate, plannedStopRate: k.plannedStopRate });
   }
 
-  return { year: y, month: m, stats, kpi: kpiDashboard(y, m), calendar, overdueList, topDepts, categoryDistribution, completionRate, trend };
+  return { year: y, month: m, stats, kpi: kpiDashboard(y, m, visibleCodes), calendar, overdueList, topDepts, categoryDistribution, completionRate, trend };
 }
 
 // ===================== 试点切换（§5.9(1) 定稿） =====================
@@ -1005,8 +1222,8 @@ module.exports = {
   generatedPlans, trainingRecords, kpiRecords, ratedHours, rectifications,
   deriveStatus, refreshStatuses, generatePlanForDevice, generateDevicePlanAtMonth, resolveMaintenanceLevel, planGrid,
   generateDailyChecksForDate, generatePeriodicForMonth,
-  generateAll, advanceStep, reschedulePlan, voidPlan,
-  createRepairOrder, closeInspectionAbnormal, freezeDeviceInstances, hasInflightRepair,
+  generateAll, advanceStep, reschedulePlan,
+  createRepairOrder, closeInspectionAbnormal, freezeDeviceInstances,
   createTrainingActivity, advanceTraining,
   upsertKpi, setRatedHours, dailyCheckReport, kpiDashboard, dashboardOverview,
   enumerateDays,

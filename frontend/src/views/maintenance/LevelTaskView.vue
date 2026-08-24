@@ -75,7 +75,7 @@ const filteredTasks = computed(() => {
 // V1.32：状态筛选（仅作用于保养列表，月度报表不受影响——否则筛到「已归档」后报表完成率恒 100% 失真）
 // V1.62：列表统一筛选——车间（filteredTasks）→ 搜索（名称/编号）→ 资产类型级联 → 状态
 const statusFilter = ref('') // '' = 全部
-const statusOptions = ['待执行', '进行中', '已超期', '已归档', '已顺延', '已作废']
+const statusOptions = ['待执行', '进行中', '已超期', '已归档']
 const listRows = computed(() => {
   let list = filteredTasks.value
   const k = kwFilter.value.trim()
@@ -89,7 +89,7 @@ const listRows = computed(() => {
 })
 
 // 状态配色（局部 map，不动共享 StatusTag）
-const statusType = { 待执行: 'warning', 进行中: 'primary', 已超期: 'danger', 已归档: 'success', 已顺延: 'info', 已作废: 'info' }
+const statusType = { 待执行: 'warning', 进行中: 'primary', 已超期: 'danger', 已归档: 'success' }
 
 // ===================== V1.60：开始执行时间 / 结束时间 =====================
 // 计划级 startedAt（首次提交）/ completedAt（归档）由后端 advanceStep 写入；旧单无字段回退步骤签名时间
@@ -122,7 +122,7 @@ watch(level, loadTasks)
 
 // ===================== V1.31/V1.32 月度报表：月度汇总 KPI + 明细表（V1.56 回退，不再对齐日常点检） =====================
 // 一/二级/润滑非每日检查（一个月几次），按 年月+车间 聚合 `filteredTasks`；明细表每行一张保养单含 保养项完成率
-// V1.32：KPI 去「已顺延」「作废」两卡，剩 计划数/已归档/待执行/进行中/已超期 5 卡 + 完成率圆环
+// V1.32：KPI 5 卡（计划数/已归档/待执行/进行中/已超期）+ 完成率圆环
 const reportSummary = computed(() => {
   const list = filteredTasks.value
   const done = list.filter(t => t.status === '已归档').length

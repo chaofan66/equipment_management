@@ -16,7 +16,7 @@ const plan = ref(null)
 const submitting = ref(false)
 // V2 双 Tab：基本信息(info) / 操作记录(records)
 const activeTab = ref('info')
-const statusTypeMap = { '待执行': 'warning', '进行中': '', '已超期': 'danger', '已顺延': 'info', '已作废': 'danger', '已归档': 'success' }
+const statusTypeMap = { '待执行': 'warning', '进行中': '', '已超期': 'danger', '已归档': 'success' }
 
 const projectNames = { daily_check: '日常点检', level1: '一级保养', level2: '二级保养', lubrication: '设备润滑', periodic_inspection: '定期检查', training: '设备培训', repair: '设备维修' }
 const handlingOpinions = ['停机处理', '列入维修计划（建议完成时限）', '继续观察运行']
@@ -82,7 +82,7 @@ const assigneeHint = computed(() => {
   if (canSubmitCurrent.value) return ''
   return '本单指派给 ' + (p.repairData?.assigneeName || '指定维保人员') + ' 执行'
 })
-// V1.54：已超期计划锁定——月度保养（一级/二级/润滑）已超期后不可继续提交/驳回（可改期/作废，admin 可越过）
+// V1.54：已超期计划锁定——月度保养（一级/二级/润滑）已超期后不可继续提交/驳回（admin 可越过）
 const overdueLocked = computed(() => plan.value?.status === '已超期')
 
 // V1.37 指派步：维保人员下拉（按需拉取，不污染 config store）
@@ -512,7 +512,7 @@ function onAttPreview(file) {
       <div v-if="plan" class="flex items-center">
         <span v-if="!currentStep" class="text-green-600 text-sm font-semibold">本单已归档 ✅</span>
         <div v-else class="flex gap-2 ml-auto items-center">
-          <span v-if="overdueLocked" class="text-xs text-[#F56C6C]">该计划已超期，无法继续操作（可改期或作废处理）</span>
+          <span v-if="overdueLocked" class="text-xs text-[#F56C6C]">该计划已超期，无法继续操作</span>
           <span v-else-if="assigneeHint" class="text-xs text-[#E6A23C]">{{ assigneeHint }}</span>
           <el-button type="warning" size="small" :loading="submitting" :disabled="overdueLocked" @click="submit('reject')">驳回退回</el-button>
           <el-button type="primary" size="small" :loading="submitting" :disabled="!canSubmitCurrent || overdueLocked" @click="submit('submit')">提交本步（{{ currentStep.name }}）</el-button>
