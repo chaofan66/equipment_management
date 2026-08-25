@@ -520,7 +520,7 @@ router.get('/dashboard/kpi', (req, res) => {
   res.json({ success: true, data: v2.kpiDashboard(y, m) });
 });
 
-// V1.42 维保总览聚合（统计卡/KPI/日历/超期统计/TOP5/分类分布/完成率/趋势；数据权限与 v2-plans 列表同源）
+// V1.42 维保总览聚合（统计卡/KPI/日历/超期统计；数据权限与 v2-plans 列表同源）
 router.get('/dashboard/overview', (req, res) => {
   const { year, month } = req.query;
   const codes = assignments.resolveVisibleCodes(getPersonnelById(curPersonnelId()));

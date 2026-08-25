@@ -3351,5 +3351,61 @@
         }
       }
     }
+  },
+  "010202": {
+    "01": {
+      "records": {
+        "_": {
+          "name": "安全操作规程",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "02": {
+      "records": {
+        "_": {
+          "name": "点检保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "03": {
+      "records": {
+        "_": {
+          "name": "一级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "04": {
+      "records": {
+        "_": {
+          "name": "二级保养标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "05": {
+      "records": {
+        "_": {
+          "name": "设备润滑标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    },
+    "06": {
+      "records": {
+        "_": {
+          "name": "定期检查标准",
+          "status": "inactive",
+          "version": 0
+        }
+      }
+    }
   }
 }

@@ -13,7 +13,10 @@ const calendarMonth = ref(new Date().getMonth() + 1)
 const overview = computed(() => store.dashboardOverview || {})
 const stats = computed(() => overview.value.stats || {})
 const kpi = computed(() => overview.value.kpi || {})
-const completionRate = computed(() => overview.value.completionRate || { done: 0, total: 0, rate: 0 })
+
+const monthLabel = computed(() =>
+  `${calendarYear.value}-${String(calendarMonth.value).padStart(2, '0')}`
+)
 
 async function loadOverview() {
   loading.value = true
@@ -31,15 +34,53 @@ function switchMonth(delta) {
   loadOverview()
 }
 
-// ---- KPI 四率（overview.kpi，置顶环形图） ----
+// ---- KPI 四率 ----
 const kpiCards = computed(() => [
-  { title: '设备完好率', value: kpi.value.availability ?? '—', sub: `${kpi.value.totalDevices ?? 0} 台设备参与点检`, color: '#67c23a', path: '/maintenance/daily-check' },
-  { title: '设备利用率', value: kpi.value.utilization ?? '—', sub: `运行 ${kpi.value.runHours ?? 0}h / 占用 ${kpi.value.occupiedHours ?? ((kpi.value.runHours||0)+(kpi.value.faultStopHours||0)+(kpi.value.planStopHours||0))}h`, color: '#409eff', path: '/maintenance/daily-check' },
-  { title: '设备故障率', value: kpi.value.faultRate ?? '—', sub: `故障停台 ${kpi.value.faultStopHours ?? 0}h`, color: '#f56c6c', path: '/maintenance/repair' },
-  { title: '计划停运率', value: kpi.value.plannedStopRate ?? '—', sub: `计划停台 ${kpi.value.planStopHours ?? 0}h`, color: '#e6a23c', path: '/maintenance/daily-check' },
+  {
+    title: '设备完好率',
+    value: kpi.value.availability,
+    sub: `${kpi.value.totalDevices ?? 0} 台参与点检`,
+    accent: '#5b8ff9',
+    tint: 'kpi-card--blue',
+    path: '/maintenance/daily-check',
+  },
+  {
+    title: '设备利用率',
+    value: kpi.value.utilization,
+    sub: `运行 ${kpi.value.runHours ?? 0}h`,
+    accent: '#5ad8a6',
+    tint: 'kpi-card--teal',
+    path: '/maintenance/daily-check',
+  },
+  {
+    title: '设备故障率',
+    value: kpi.value.faultRate,
+    sub: `故障停台 ${kpi.value.faultStopHours ?? 0}h`,
+    accent: '#f56c6c',
+    tint: 'kpi-card--red',
+    path: '/maintenance/repair',
+  },
+  {
+    title: '计划停运率',
+    value: kpi.value.plannedStopRate,
+    sub: `计划停台 ${kpi.value.planStopHours ?? 0}h`,
+    accent: '#ffbb28',
+    tint: 'kpi-card--amber',
+    path: '/maintenance/daily-check',
+  },
 ])
 
-// ---- 业务统计卡：按模块进度（总数 / 已完成 / 未完成）----
+function kpiPct(val) {
+  if (val == null || val === '—') return 0
+  return Math.round(Math.min(100, Math.max(0, Number(val) || 0)))
+}
+
+function kpiDisplay(val) {
+  if (val == null || val === '—') return '—'
+  return val
+}
+
+// ---- 业务统计卡 ----
 const emptyProgress = () => ({ total: 0, done: 0, pending: 0 })
 const progressOf = (mod) => {
   const p = mod || emptyProgress()
@@ -66,31 +107,35 @@ const statCards = computed(() => {
       ...daily,
       sub: missed ? `本月缺检 ${missed} 次` : '班前 / 班后',
       path: '/maintenance/daily-check',
-      color: '#73b9ff',
+      iconBg: 'linear-gradient(135deg, #6eb5ff 0%, #409eff 100%)',
     },
     {
       title: '本月保养',
       ...maint,
       sub: maintDetail.value,
       path: '/maintenance/level1',
-      color: '#409eff',
+      iconBg: 'linear-gradient(135deg, #5cdbd3 0%, #13c2c2 100%)',
     },
     {
       title: '本月检查',
       ...insp,
       sub: '定期检查',
       path: '/maintenance/inspection',
-      color: '#e6a23c',
+      iconBg: 'linear-gradient(135deg, #ffc069 0%, #fa8c16 100%)',
     },
     {
       title: '本月维修',
       ...repair,
       sub: emergency ? `紧急超时 ${emergency} 单` : '维修工单',
       path: '/maintenance/repair',
-      color: '#f56c6c',
+      iconBg: 'linear-gradient(135deg, #b37feb 0%, #722ed1 100%)',
     },
   ]
 })
+
+const pendingTotal = computed(() =>
+  statCards.value.reduce((sum, c) => sum + c.pending, 0)
+)
 
 // ---- 日历 ----
 const calendarDays = computed(() => {
@@ -115,58 +160,42 @@ const calendarDays = computed(() => {
   return weeks
 })
 
-// ---- 超期统计 ----
 const overduePlan = computed(() => (overview.value.overdueList && overview.value.overdueList.plan) || [])
+
 function overduePlanPath(item) {
   if (item.type === '检查') return '/maintenance/inspection'
   return '/maintenance/level1'
 }
 
-// ---- TOP5 ----
-const topDepts = computed(() => overview.value.topDepts || [])
-const topMax = computed(() => topDepts.value[0]?.count || 1)
-
-// ---- 月度趋势（柱高按全局最大值缩放，tooltip 显示真实百分比） ----
-const TREND_METRICS = [
-  { key: 'availability', label: '完好率', color: '#409eff' },
-  { key: 'utilization', label: '利用率', color: '#67c23a' },
-  { key: 'faultRate', label: '故障率', color: '#f56c6c' },
-  { key: 'plannedStopRate', label: '计划停运率', color: '#e6a23c' },
-]
-const trendMax = computed(() => {
-  let max = 100
-  ;(overview.value.trend || []).forEach(t => {
-    TREND_METRICS.forEach(mc => { max = Math.max(max, Number(t[mc.key]) || 0) })
-  })
-  return max
-})
-const trend = computed(() => (overview.value.trend || []).map(t => ({
-  label: `${t.month}月`,
-  bars: TREND_METRICS.map(mc => {
-    const raw = Number(t[mc.key]) || 0
-    return { ...mc, raw, value: trendMax.value > 0 ? (raw / trendMax.value) * 100 : 0 }
-  }),
-})))
-
-const categoryDistribution = computed(() => overview.value.categoryDistribution || [])
-
 const weekDays = ['一', '二', '三', '四', '五', '六', '日']
+const todayStr = fmtDate(new Date())
+
+function fmtDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const LEGEND = [
+  { key: 'daily_check', label: '日常点检', color: '#73b9ff' },
+  { key: 'level1', label: '一级保养', color: '#409eff' },
+  { key: 'level2', label: '二级保养', color: '#1e6fd9' },
+  { key: 'lubrication', label: '设备润滑', color: '#67c23a' },
+  { key: 'periodic_inspection', label: '定期检查', color: '#e6a23c' },
+  { key: 'repair', label: '维修', color: '#f56c6c' },
+]
 
 function goTo(path) {
   if (path) router.push(path)
 }
 
-const EVENT_COLORS = {
-  daily_check: '#73b9ff',
-  level1: '#409eff',
-  level2: '#1e6fd9',
-  lubrication: '#67c23a',
-  periodic_inspection: '#e6a23c',
-  repair: '#f56c6c',
-}
+const EVENT_COLORS = Object.fromEntries(LEGEND.map(l => [l.key, l.color]))
+
 function eventColor(ev) {
   return EVENT_COLORS[ev.projectType] || '#409eff'
 }
+
 function eventStyle(ev) {
   const style = { background: eventColor(ev) }
   if (ev.status === '已超期') style.boxShadow = 'inset 0 0 0 2px #f56c6c'
@@ -177,248 +206,574 @@ onMounted(loadOverview)
 </script>
 
 <template>
-  <div v-loading="loading" class="flex-1 overflow-auto p-4 bg-[#f5f7fa]">
-    <!-- Row1: 业务统计卡（按模块：总数 / 已完成 / 未完成） -->
-    <div class="flex gap-3 mb-4">
-      <div v-for="card in statCards" :key="card.title" class="flex-1 min-w-0">
-        <el-card shadow="hover" class="stat-card cursor-pointer" :style="{ borderLeftColor: card.color }" @click="goTo(card.path)">
-          <div class="stat-label" :style="{ color: card.color }">{{ card.title }}</div>
-          <div class="stat-metrics">
-            <div class="stat-metric">
-              <div class="stat-metric-value" style="color:#303133">{{ card.total }}</div>
-              <div class="stat-metric-label">总数</div>
-            </div>
-            <div class="stat-metric">
-              <div class="stat-metric-value" style="color:#67c23a">{{ card.done }}</div>
-              <div class="stat-metric-label">已完成</div>
-            </div>
-            <div class="stat-metric">
-              <div class="stat-metric-value" style="color:#e6a23c">{{ card.pending }}</div>
-              <div class="stat-metric-label">未完成</div>
-            </div>
-          </div>
-          <div class="stat-desc">{{ card.sub }}</div>
-        </el-card>
+  <div v-loading="loading" class="dash-page">
+    <!-- 页头 -->
+    <div class="dash-header">
+      <div>
+        <h2 class="dash-title">维保总览</h2>
+        <p class="dash-subtitle">
+          {{ monthLabel }}
+          <span class="dash-dot">·</span>
+          {{ kpi.totalDevices ?? 0 }} 台设备参与点检
+          <span class="dash-dot">·</span>
+          <span :class="pendingTotal ? 'text-amber-600' : 'text-emerald-600'">
+            {{ pendingTotal ? `未完成 ${pendingTotal} 项` : '任务已全部完成' }}
+          </span>
+        </p>
+      </div>
+      <div class="month-switcher">
+        <button type="button" class="month-btn" @click="switchMonth(-1)">◀</button>
+        <span class="month-label">{{ monthLabel }}</span>
+        <button type="button" class="month-btn" @click="switchMonth(1)">▶</button>
       </div>
     </div>
 
-    <!-- Row2: KPI 四率 -->
-    <el-row :gutter="16" class="mb-4">
-      <el-col v-for="card in kpiCards" :key="card.title" :span="6">
-        <el-card shadow="hover" class="kpi-chart-card cursor-pointer" @click="goTo(card.path)">
-          <div class="flex flex-col items-center py-2">
-            <el-progress type="dashboard"
-              :percentage="Math.round(Math.min(100, Math.max(0, Number(card.value) || 0)))"
-              :color="card.color" :width="120" :stroke-width="10"
-              :format="() => (card.value === '—' ? '—' : card.value + '%')" />
-            <div class="mt-3 text-sm font-semibold text-[#303133]">{{ card.title }}</div>
-            <div class="mt-1 text-xs text-[#909399]">{{ card.sub }}</div>
-            <el-tag class="mt-2" size="small" type="info" effect="plain">{{ calendarYear }}-{{ String(calendarMonth).padStart(2, '0') }}</el-tag>
+    <!-- 业务统计：四模块进度 -->
+    <div class="stat-panel">
+      <div
+        v-for="(card, idx) in statCards"
+        :key="card.title"
+        class="stat-section"
+        :class="{ 'stat-section--border': idx > 0 }"
+        @click="goTo(card.path)"
+      >
+        <div class="stat-section-head">
+          <span class="stat-icon" :style="{ background: card.iconBg }" />
+          <span class="stat-title">{{ card.title }}</span>
+        </div>
+        <div class="stat-primary">
+          <div class="stat-primary-label">总数</div>
+          <div class="stat-primary-value">{{ card.total }}</div>
+        </div>
+        <div class="stat-secondary">
+          <div class="stat-secondary-row">
+            <span class="stat-secondary-label">已完成</span>
+            <span class="stat-secondary-value stat-secondary-value--done">{{ card.done }}</span>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+          <div class="stat-secondary-row">
+            <span class="stat-secondary-label">未完成</span>
+            <span class="stat-secondary-value stat-secondary-value--pending">{{ card.pending }}</span>
+          </div>
+        </div>
+        <div v-if="card.sub" class="stat-footnote">{{ card.sub }}</div>
+      </div>
+    </div>
 
-    <!-- Row3: 日历 + 超期统计/TOP5 -->
-    <el-row :gutter="16" class="mb-4">
-      <el-col :span="14">
-        <el-card shadow="never" class="calendar-card">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-semibold">维保日历</span>
-              <div class="flex items-center gap-2">
-                <el-button size="small" @click="switchMonth(-1)">◀</el-button>
-                <span class="text-sm">{{ calendarYear }}-{{ String(calendarMonth).padStart(2, '0') }}</span>
-                <el-button size="small" @click="switchMonth(1)">▶</el-button>
-              </div>
-            </div>
-          </template>
+    <!-- KPI 四率 -->
+    <div class="kpi-grid">
+      <div
+        v-for="card in kpiCards"
+        :key="card.title"
+        class="kpi-card"
+        :class="card.tint"
+        @click="goTo(card.path)"
+      >
+        <div class="kpi-card-head">
+          <span class="kpi-dot" :style="{ background: card.accent }" />
+          <span class="kpi-card-title">{{ card.title }}</span>
+        </div>
+        <div class="kpi-card-value">
+          {{ kpiDisplay(card.value) }}<span v-if="card.value != null && card.value !== '—'" class="kpi-unit">%</span>
+        </div>
+        <div class="kpi-card-sub">{{ card.sub }}</div>
+        <div class="kpi-bar">
+          <div
+            class="kpi-bar-fill"
+            :style="{ width: kpiPct(card.value) + '%', background: card.accent }"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- 日历 + 超期 -->
+    <div class="dash-row">
+      <!-- 维保日历 -->
+      <div class="dash-card dash-card--wide">
+        <div class="dash-card-header">
+          <div class="dash-card-title-wrap">
+            <span class="dash-card-icon dash-card-icon--blue">📅</span>
+            <span class="dash-card-title">维保日历</span>
+          </div>
+        </div>
+        <div class="dash-card-body calendar-body">
           <div class="calendar-watermark">{{ calendarMonth }}</div>
           <table class="calendar-table">
             <thead>
-              <tr><th v-for="d in weekDays" :key="d" class="text-xs">{{ d }}</th></tr>
+              <tr>
+                <th v-for="d in weekDays" :key="d">{{ d }}</th>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="(week, wi) in calendarDays" :key="wi">
-                <td v-for="(day, di) in week" :key="di" class="cal-cell" :class="{ 'cal-empty': !day, 'cal-weekend': di >= 5 }">
+                <td
+                  v-for="(day, di) in week"
+                  :key="di"
+                  class="cal-cell"
+                  :class="{ 'cal-empty': !day, 'cal-weekend': di >= 5, 'cal-today': day && day.date === todayStr }"
+                >
                   <template v-if="day">
                     <div class="cal-day-num">{{ day.day }}</div>
                     <div class="cal-events">
-                      <div v-for="(ev, ei) in day.events.slice(0, 2)" :key="ei"
-                        class="cal-event text-xs truncate"
-                        :style="eventStyle(ev)">
+                      <div
+                        v-for="(ev, ei) in day.events.slice(0, 2)"
+                        :key="ei"
+                        class="cal-event truncate"
+                        :style="eventStyle(ev)"
+                      >
                         {{ ev.deviceName || ev.title || '维保' }}
                       </div>
-                      <div v-if="day.events.length > 2" class="text-xs text-[#909399]">+{{ day.events.length - 2 }}</div>
+                      <div v-if="day.events.length > 2" class="cal-more">+{{ day.events.length - 2 }}</div>
                     </div>
                   </template>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div class="flex items-center gap-3 mt-2 text-xs text-[#909399]">
-            <span>图例：</span>
-            <span class="flex items-center gap-1"><span class="dot" style="background:#73b9ff"></span>日常点检</span>
-            <span class="flex items-center gap-1"><span class="dot" style="background:#409eff"></span>一级保养</span>
-            <span class="flex items-center gap-1"><span class="dot" style="background:#1e6fd9"></span>二级保养</span>
-            <span class="flex items-center gap-1"><span class="dot" style="background:#67c23a"></span>设备润滑</span>
-            <span class="flex items-center gap-1"><span class="dot" style="background:#e6a23c"></span>定期检查</span>
-            <span class="flex items-center gap-1"><span class="dot" style="background:#f56c6c"></span>维修</span>
-            <span class="text-[#f56c6c]">红框=已超期</span>
+          <div class="calendar-legend">
+            <span
+              v-for="item in LEGEND"
+              :key="item.key"
+              class="legend-pill"
+            >
+              <span class="legend-dot" :style="{ background: item.color }" />
+              {{ item.label }}
+            </span>
+            <span class="legend-overdue">红框 = 已超期</span>
           </div>
-        </el-card>
-      </el-col>
+        </div>
+      </div>
 
-      <el-col :span="10">
-        <div class="flex flex-col gap-3 h-full">
-          <el-card shadow="never" class="flex-card flex-1">
-            <template #header>
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-semibold">⏰ 超期统计</span>
-              </div>
-            </template>
-            <div v-if="!overduePlan.length" class="flex-1 flex items-center justify-center text-xs text-[#909399]">暂无超期任务 ✓</div>
-            <div v-else class="flex flex-col flex-1">
-              <div v-for="item in overduePlan" :key="'p-' + item.deviceCode + item.planDate + item.type"
-                class="flex items-center gap-2 py-1 text-xs cursor-pointer hover:bg-[#f5f7fa]" @click="goTo(overduePlanPath(item))">
+      <!-- 超期统计 -->
+      <div class="dash-card dash-card--narrow">
+        <div class="dash-card-header">
+          <div class="dash-card-title-wrap">
+            <span class="dash-card-icon dash-card-icon--amber">⏰</span>
+            <span class="dash-card-title">超期统计</span>
+          </div>
+          <span v-if="overduePlan.length" class="overdue-badge">{{ overduePlan.length }}</span>
+        </div>
+        <div class="dash-card-body overdue-body">
+          <div v-if="!overduePlan.length" class="overdue-empty">
+            <div class="overdue-empty-icon">✓</div>
+            <div class="overdue-empty-text">暂无超期任务</div>
+          </div>
+          <div v-else class="overdue-list">
+            <div
+              v-for="(item, i) in overduePlan"
+              :key="'p-' + item.deviceCode + item.planDate + item.type"
+              class="overdue-row"
+              :class="{ 'overdue-row--alt': i % 2 === 1 }"
+              @click="goTo(overduePlanPath(item))"
+            >
+              <div class="overdue-row-top">
                 <StatusTag status="已超期" />
                 <el-tag size="small" type="info" effect="plain">{{ item.type }}</el-tag>
-                <span class="flex-1 truncate">{{ item.deviceName }}</span>
-                <span class="text-[#909399] shrink-0">{{ item.planDate }}</span>
-                <span class="text-red-500 font-semibold shrink-0">超期 {{ item.overdueDays }}天</span>
+                <span class="overdue-days">超期 {{ item.overdueDays }} 天</span>
               </div>
+              <div class="overdue-row-name">{{ item.deviceName }}</div>
+              <div class="overdue-row-date">{{ item.planDate }}</div>
             </div>
-          </el-card>
-
-          <el-card shadow="never" class="flex-card flex-1">
-            <template #header>
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-semibold">维保工作量 TOP5</span>
-                <span class="text-xs text-[#909399]">不含日常点检</span>
-              </div>
-            </template>
-            <div v-if="!topDepts.length" class="flex-1 flex items-center justify-center text-xs text-[#909399]">暂无数据</div>
-            <div v-else class="flex flex-col flex-1">
-              <div v-for="(dept, i) in topDepts" :key="i" class="flex-1 flex flex-col justify-center">
-                <div class="flex items-center gap-2 text-xs mb-1">
-                  <span class="text-[#909399] w-5">{{ i + 1 }}</span>
-                  <span class="flex-1">{{ dept.dept }}</span>
-                  <span class="font-semibold">{{ dept.count }}</span>
-                </div>
-                <div class="bar-bg"><div class="bar-fill" :style="{ width: Math.min(100, (dept.count / topMax) * 100) + '%', background: i < 3 ? '#409eff' : '#909399' }"></div></div>
-              </div>
-            </div>
-          </el-card>
+          </div>
         </div>
-      </el-col>
-    </el-row>
-
-    <!-- Row4: 月度趋势 + 完成率环/分类分布 -->
-    <el-row :gutter="16">
-      <el-col :span="14">
-        <el-card shadow="never" class="flex-card h-full">
-          <template #header><span class="text-sm font-semibold">月度趋势（近 6 个月）</span></template>
-          <div v-if="!trend.length" class="flex-1 flex items-center justify-center text-xs text-[#909399]">暂无数据</div>
-          <div v-else class="flex flex-col flex-1 min-h-0">
-            <div class="trend-chart">
-              <div v-for="(t, ti) in trend" :key="ti" class="trend-group">
-                <div class="trend-bars">
-                  <div v-for="bar in t.bars" :key="bar.key" class="trend-col" :title="`${bar.label} ${bar.raw}%`">
-                    <div class="trend-bar" :style="{ height: bar.value + '%', background: bar.color }"></div>
-                  </div>
-                </div>
-                <div class="trend-label">{{ t.label }}</div>
-              </div>
-            </div>
-            <div class="flex items-center gap-3 mt-2 text-xs text-[#909399]">
-              <span>图例：</span>
-              <span v-for="m in TREND_METRICS" :key="m.key" class="flex items-center gap-1">
-                <span class="dot" :style="{ background: m.color }"></span>{{ m.label }}
-              </span>
-              <span class="text-[#c0c4cc]">| 柱高按最大值 {{ trendMax }}% 缩放，悬停看真实值</span>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="10">
-        <el-card shadow="never" class="mb-3">
-          <template #header><span class="text-sm font-semibold">保养完成率（当月）</span></template>
-          <div class="flex items-center justify-center gap-6 py-2">
-            <el-progress type="dashboard" :percentage="Math.round(completionRate.rate)"
-              :format="() => `${completionRate.done}/${completionRate.total}`" color="#67c23a" :width="120" />
-            <div class="text-xs text-[#909399] leading-relaxed">
-              <div>已归档：<span class="text-[#303133] font-semibold">{{ completionRate.done }}</span> 单</div>
-              <div>计划总数：<span class="text-[#303133] font-semibold">{{ completionRate.total }}</span> 单</div>
-            </div>
-          </div>
-        </el-card>
-
-        <el-card shadow="never">
-          <template #header><span class="text-sm font-semibold">设备分类分布</span></template>
-          <div v-if="!categoryDistribution.length" class="text-center py-4 text-xs text-[#909399]">暂无数据</div>
-          <div v-for="(c, i) in categoryDistribution" :key="i" class="mb-2">
-            <div class="flex items-center gap-2 text-xs mb-1">
-              <span class="flex-1 truncate">{{ c.category }}</span>
-              <span class="text-[#909399]">{{ c.participating }}/{{ c.total }} 台</span>
-            </div>
-            <div class="bar-bg"><div class="bar-fill" :style="{ width: c.total ? Math.min(100, (c.participating / c.total) * 100) + '%' : '0%', background: '#67c23a' }"></div></div>
-          </div>
-          <div class="mt-2 text-xs text-[#909399]">绿色条 = 参与点检台数 / 全量台数</div>
-        </el-card>
-      </el-col>
-    </el-row>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.stat-card { border-left: 3px solid #409eff; transition: transform 0.15s; }
-.stat-card:hover { transform: translateY(-2px); }
-.stat-label { font-size: 13px; font-weight: 600; color: #606266; margin-bottom: 8px; }
-.stat-metrics { display: flex; align-items: flex-end; gap: 8px; }
-.stat-metric { flex: 1; min-width: 0; text-align: center; }
-.stat-metric-value { font-size: 24px; font-weight: 700; line-height: 1.2; }
-.stat-metric-label { font-size: 11px; color: #909399; margin-top: 2px; }
-.stat-desc { font-size: 11px; color: #909399; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-page {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 24px 28px;
+  background: #fff;
+  min-height: 100%;
+}
 
-.kpi-chart-card { transition: transform 0.15s; }
-.kpi-chart-card:hover { transform: translateY(-2px); }
+/* ---- 页头 ---- */
+.dash-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+.dash-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: -0.3px;
+}
+.dash-subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #8c8c8c;
+}
+.dash-dot { margin: 0 6px; color: #d9d9d9; }
 
-.flex-card { display: flex; flex-direction: column; }
-.flex-card :deep(.el-card__body) { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.month-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px 6px;
+  border: 1px solid #ebeef5;
+  flex-shrink: 0;
+}
+.month-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #595959;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+.month-btn:hover { background: #f5f5f5; }
+.month-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  padding: 0 8px;
+  min-width: 80px;
+  text-align: center;
+}
 
-.calendar-table { border-collapse: collapse; width: 100%; }
-.calendar-table th, .calendar-table td { border: 1px solid #ebeef5; }
-.calendar-table th { background: #f5f7fa; padding: 4px; text-align: center; }
-.cal-cell { height: 60px; vertical-align: top; padding: 2px 4px; width: 14.2%; }
-.cal-empty { background: #fafafa; }
-.cal-weekend .cal-day-num { color: #f56c6c; }
-.cal-day-num { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
-.cal-events { display: flex; flex-direction: column; gap: 1px; }
-.cal-event { color: #fff; padding: 0 3px; border-radius: 2px; font-size: 10px; line-height: 16px; overflow: hidden; }
+/* ---- 业务统计面板 ---- */
+.stat-panel {
+  display: flex;
+  background: linear-gradient(135deg, #e8f2fc 0%, #f0f6ff 40%, #fafcff 100%);
+  border-radius: 14px;
+  border: 1px solid #ebeef5;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.stat-section {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-radius: 8px;
+}
+.stat-section:first-child { padding-left: 8px; }
+.stat-section:last-child { padding-right: 8px; }
+.stat-section:hover { background: rgba(255, 255, 255, 0.5); }
+.stat-section--border { border-left: 1px solid rgba(91, 143, 249, 0.12); }
+.stat-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.stat-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.stat-title { font-size: 15px; font-weight: 600; color: #303133; }
+.stat-primary { margin-bottom: 18px; }
+.stat-primary-label { font-size: 12px; color: #8c8c8c; margin-bottom: 6px; }
+.stat-primary-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+.stat-secondary { display: flex; flex-direction: column; gap: 10px; }
+.stat-secondary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  max-width: 140px;
+}
+.stat-secondary-label { color: #8c8c8c; }
+.stat-secondary-value { font-weight: 600; }
+.stat-secondary-value--done { color: #52c41a; }
+.stat-secondary-value--pending { color: #fa8c16; }
+.stat-footnote {
+  margin-top: 16px;
+  font-size: 11px;
+  color: #bfbfbf;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+/* ---- KPI 四率 ---- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.kpi-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px 20px;
+  border: 1px solid #ebeef5;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  pointer-events: none;
+}
+.kpi-card--blue::before { background: linear-gradient(135deg, #5b8ff9, #9270ca); }
+.kpi-card--teal::before { background: linear-gradient(135deg, #5ad8a6, #5b8ff9); }
+.kpi-card--red::before { background: linear-gradient(135deg, #f56c6c, #ff7875); }
+.kpi-card--amber::before { background: linear-gradient(135deg, #ffbb28, #ffc53d); }
+.kpi-card:hover {
+  border-color: #c6e2ff;
+}
+.kpi-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.kpi-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.kpi-card-title {
+  font-size: 13px;
+  color: #8c8c8c;
+  font-weight: 500;
+}
+.kpi-card-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  position: relative;
+}
+.kpi-unit {
+  font-size: 16px;
+  font-weight: 600;
+  margin-left: 2px;
+  color: #595959;
+}
+.kpi-card-sub {
+  font-size: 12px;
+  color: #bfbfbf;
+  margin-top: 6px;
+  position: relative;
+}
+.kpi-bar {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 2px;
+  margin-top: 14px;
+  overflow: hidden;
+  position: relative;
+}
+.kpi-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
 
-.calendar-card :deep(.el-card__body) { position: relative; overflow: hidden; }
+/* ---- 底部双栏 ---- */
+.dash-row {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 14px;
+  align-items: start;
+}
+.dash-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #ebeef5;
+  overflow: hidden;
+}
+.dash-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.dash-card-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-card-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.dash-card-icon--blue { background: rgba(91, 143, 249, 0.12); }
+.dash-card-icon--amber { background: rgba(255, 187, 40, 0.15); }
+.dash-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+.dash-card-body { padding: 16px 20px 20px; }
+
+/* ---- 日历 ---- */
+.calendar-body { position: relative; overflow: hidden; }
 .calendar-watermark {
   position: absolute;
-  top: 50%; left: 50%;
+  top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 190px;
+  font-size: 180px;
   font-weight: 700;
   line-height: 1;
-  color: rgba(64, 158, 255, 0.08);
+  color: rgba(91, 143, 249, 0.05);
   pointer-events: none;
   user-select: none;
 }
+.calendar-table {
+  border-collapse: separate;
+  border-spacing: 4px;
+  width: 100%;
+  position: relative;
+}
+.calendar-table th {
+  font-size: 12px;
+  font-weight: 500;
+  color: #8c8c8c;
+  padding: 4px 0 8px;
+  text-align: center;
+}
+.cal-cell {
+  height: 64px;
+  vertical-align: top;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fafafa;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  transition: background 0.15s;
+}
+.cal-cell:not(.cal-empty):hover { background: #f0f5ff; }
+.cal-empty { background: transparent; }
+.cal-weekend .cal-day-num { color: #f56c6c; }
+.cal-today { background: #e6f4ff !important; border: 1px solid #5b8ff9; }
+.cal-day-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+}
+.cal-events { display: flex; flex-direction: column; gap: 2px; }
+.cal-event {
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 16px;
+}
+.cal-more { font-size: 10px; color: #bfbfbf; padding-left: 2px; }
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f0f0;
+}
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #8c8c8c;
+  background: #fafafa;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-overdue { font-size: 11px; color: #f56c6c; margin-left: auto; }
 
-.bar-bg { height: 6px; background: #ebeef5; border-radius: 3px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
-
-.trend-chart { display: flex; align-items: flex-end; gap: 16px; flex: 1; min-height: 180px; padding: 0 8px; }
-.trend-group { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }
-.trend-bars { display: flex; align-items: flex-end; gap: 3px; height: 100%; width: 100%; justify-content: center; }
-.trend-col { display: flex; align-items: flex-end; height: 100%; }
-.trend-bar { width: 7px; border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.3s; }
-.trend-label { font-size: 11px; color: #909399; margin-top: 6px; }
+/* ---- 超期列表 ---- */
+.overdue-badge {
+  background: #fff1f0;
+  color: #f5222d;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+.overdue-body { min-height: 320px; }
+.overdue-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  gap: 8px;
+}
+.overdue-empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f6ffed;
+  color: #52c41a;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.overdue-empty-text { font-size: 13px; color: #bfbfbf; }
+.overdue-list { display: flex; flex-direction: column; gap: 2px; }
+.overdue-row {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.overdue-row:hover { background: #e6f4ff !important; }
+.overdue-row--alt { background: #fafafa; }
+.overdue-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.overdue-days {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f5222d;
+}
+.overdue-row-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overdue-row-date { font-size: 11px; color: #bfbfbf; margin-top: 2px; }
 </style>

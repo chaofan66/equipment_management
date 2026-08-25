@@ -1079,9 +1079,8 @@ function kpiDashboard(year, month, visibleCodes) {
 }
 
 // ===================== 维保总览聚合（V1.42，全部读 V2 generatedPlans） =====================
-// 供 GET /maintenance/dashboard/overview 使用；一次返回 统计卡/KPI/日历/超期统计/TOP5/分类分布/完成率/趋势。
-// 口径：统计卡=各模块总数/已完成/未完成；超期统计=当月已超期保养/检查（不含点检）；TOP5=当月按 dept 聚合（不含日常点检）；
-// 完成率=当月 level1/2/lub 已归档 ÷ 计划数；趋势=近 6 月 kpiDashboard 四指标。
+// 供 GET /maintenance/dashboard/overview 使用；一次返回 统计卡/KPI/日历/超期统计。
+// 口径：统计卡=各模块总数/已完成/未完成；超期统计=当月已超期保养/检查（不含点检）。
 // opts.visibleCodes：数据权限设备集合（与 v2-plans 列表同源）；null/undefined=全量。
 function dashboardOverview(year, month, opts = {}) {
   const visibleCodes = opts.visibleCodes;
@@ -1161,43 +1160,7 @@ function dashboardOverview(year, month, opts = {}) {
   const planOverdue = overdueMaintInspect.map(mapOverdue);
   const overdueList = { plan: planOverdue, rect: [] };
 
-  // ---- 工作量 TOP5（当月按部门；不含日常点检，避免点检量淹没保养/维修） ----
-  const deptCounts = {};
-  monthPlans.filter(p => p.projectType !== 'daily_check').forEach(p => {
-    if (p.dept) deptCounts[p.dept] = (deptCounts[p.dept] || 0) + 1;
-  });
-  const topDepts = Object.entries(deptCounts).map(([dept, count]) => ({ dept, count }))
-    .sort((a, b) => b.count - a.count).slice(0, 5);
-
-  // ---- 设备分类分布（台账大类；参与台数=配 02 点检模板） ----
-  const catMap = {};
-  devices.forEach(d => {
-    if (!inScope(d.code)) return;
-    const cat = (d.type || '').split('/')[0] || '其他';
-    if (!catMap[cat]) catMap[cat] = { total: 0, participating: 0 };
-    catMap[cat].total++;
-    if (mc.resolveTemplate(d.typeCode, '02', monthStr).content) catMap[cat].participating++;
-  });
-  const categoryDistribution = Object.entries(catMap)
-    .map(([category, v]) => ({ category, total: v.total, participating: v.participating }))
-    .sort((a, b) => b.total - a.total);
-
-  // ---- 保养完成率环（当月 level1/2/lub：已归档 ÷ 计划数） ----
-  const completionRate = {
-    done: stats.maintenance.done, total: stats.maintenance.total,
-    rate: stats.maintenance.total ? Number((stats.maintenance.done / stats.maintenance.total * 100).toFixed(1)) : 0,
-  };
-
-  // ---- 月度趋势（近 6 月含当月，kpiDashboard 按月循环，跨年递减） ----
-  const trend = [];
-  for (let i = 5; i >= 0; i--) {
-    let yy = y, mm = m - i;
-    while (mm <= 0) { mm += 12; yy--; }
-    const k = kpiDashboard(yy, mm, visibleCodes);
-    trend.push({ year: yy, month: mm, availability: k.availability, utilization: k.utilization, faultRate: k.faultRate, plannedStopRate: k.plannedStopRate });
-  }
-
-  return { year: y, month: m, stats, kpi: kpiDashboard(y, m, visibleCodes), calendar, overdueList, topDepts, categoryDistribution, completionRate, trend };
+  return { year: y, month: m, stats, kpi: kpiDashboard(y, m, visibleCodes), calendar, overdueList };
 }
 
 // ===================== 试点切换（§5.9(1) 定稿） =====================
