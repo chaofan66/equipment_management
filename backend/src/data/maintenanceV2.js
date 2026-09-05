@@ -1047,6 +1047,125 @@ function repairFaultStopHours(rd) {
   return 0;
 }
 
+/** 完成时间口径：优先维修完成时间 endTime，回退 completedAt → YYYY-MM-DD */
+function repairCompletionDate(plan) {
+  const t = (plan && plan.repairData && plan.repairData.endTime) || (plan && plan.completedAt) || '';
+  return String(t).replace('T', ' ').substring(0, 10);
+}
+
+function _ymd(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** 校验闭区间起止日期 YYYY-MM-DD */
+function repairReportDateRange(startStr, endStr) {
+  const start = String(startStr || '').substring(0, 10);
+  const end = String(endStr || '').substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    throw new Error('start/end 须为 YYYY-MM-DD');
+  }
+  if (start > end) throw new Error('开始日期不能晚于结束日期');
+  return { start, end };
+}
+
+/** @deprecated 保留兼容；优先用 repairReportDateRange(start, end) */
+function repairReportPeriodRange(period, dateStr) {
+  const raw = String(dateStr || '').substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw new Error('日期格式须为 YYYY-MM-DD');
+  const d = new Date(raw + 'T00:00:00');
+  if (isNaN(d.getTime())) throw new Error('无效日期');
+  if (period === 'day') return { start: raw, end: raw };
+  if (period === 'week') {
+    const dow = d.getDay(); // 0=Sun
+    const toMon = dow === 0 ? -6 : 1 - dow;
+    const mon = new Date(d); mon.setDate(d.getDate() + toMon);
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    return { start: _ymd(mon), end: _ymd(sun) };
+  }
+  if (period === 'month') {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const start = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    const last = new Date(y, m + 1, 0);
+    return { start, end: _ymd(last) };
+  }
+  throw new Error('period 须为 day|week|month');
+}
+
+function _formatDangerTicket(t) {
+  if (!t) return '';
+  const no = (t.no || '').trim();
+  const type = (t.type || '').trim();
+  const content = (t.content || '').trim();
+  if (!no && !type && !content) return '';
+  if (type || content) {
+    const mid = type && content ? `${type}：${content}` : (type || content);
+    return no ? `${no}（${mid}）` : mid;
+  }
+  return no;
+}
+
+/**
+ * 已归档维修工单按完成时间落在 [start,end] 的列表（可选 visibleCodes 收窄）。
+ * 按完成时间升序。
+ */
+function listCompletedRepairsInRange(startStr, endStr, visibleCodes) {
+  const range = repairReportDateRange(startStr, endStr);
+  let list = generatedPlans.filter(p => {
+    if (p.projectType !== 'repair' || p.voided) return false;
+    if (p.status !== '已归档') return false;
+    const cd = repairCompletionDate(p);
+    if (!cd) return false;
+    return cd >= range.start && cd <= range.end;
+  });
+  if (visibleCodes) list = list.filter(p => visibleCodes.has(p.deviceCode));
+  list.sort((a, b) => repairCompletionDate(a).localeCompare(repairCompletionDate(b)) || String(a.id).localeCompare(String(b.id)));
+  return { range, list };
+}
+
+/** @deprecated 日/周/月入口；新代码用 listCompletedRepairsInRange */
+function listCompletedRepairsInPeriod(period, dateStr, visibleCodes) {
+  const range = repairReportPeriodRange(period, dateStr);
+  return listCompletedRepairsInRange(range.start, range.end, visibleCodes);
+}
+
+/**
+ * 构建设备维修记录报表行（与样表列一致）。
+ */
+function repairRecordReportRows(plans) {
+  return plans.map((p, idx) => {
+    const rd = p.repairData || {};
+    const dev = devices.find(d => d.code === p.deviceCode);
+    const tickets = Array.isArray(rd.dangerTickets) ? rd.dangerTickets : [];
+    const stopH = repairFaultStopHours(rd);
+    return {
+      seq: idx + 1,
+      id: p.id || '',
+      deviceCode: p.deviceCode || '',
+      deviceName: p.deviceName || (dev && dev.name) || '',
+      spec: p.spec || (dev && dev.spec) || '',
+      dept: p.dept || (dev && dev.department) || '',
+      assetClass: p.assetClass || (dev && (dev.assetCategory || dev.type)) || '',
+      startTime: rd.startTime || '',
+      endTime: rd.endTime || '',
+      stopHours: stopH ? String(stopH) : '',
+      stopType: rd.stopType || '',
+      repairContent: rd.repairContent || '',
+      spareParts: rd.spareParts || '',
+      faultReason: rd.faultReason || '',
+      assigneeName: rd.assigneeName || '',
+      safetyBriefing: rd.safetyBriefing || '',
+      ticket1: _formatDangerTicket(tickets[0]),
+      ticket2: _formatDangerTicket(tickets[1]),
+      ticket3: _formatDangerTicket(tickets[2]),
+      remark: rd.abnormalDesc || '',
+    };
+  });
+}
+
 
 // KPI 总览（§5.4：总体设备完好率/利用率/故障率/计划停运率）
 function kpiDashboard(year, month, visibleCodes) {
@@ -1192,4 +1311,6 @@ module.exports = {
   enumerateDays,
   closeRectification, markOverdueRectifications,
   switchPilotDate, initDeviceMaintenance, canExecuteStep,
+  repairFaultStopHours, repairCompletionDate, repairReportDateRange, repairReportPeriodRange,
+  listCompletedRepairsInRange, listCompletedRepairsInPeriod, repairRecordReportRows,
 };

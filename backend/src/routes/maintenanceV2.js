@@ -468,6 +468,88 @@ router.post('/repair-orders', (req, res) => {
   } catch (e) { res.status(400).json({ success: false, error: e.message }); }
 });
 
+// 设备维修记录报表导出（时间段 · 仅已归档）：GET /maintenance/repair-orders/export?start=&end=
+router.get('/repair-orders/export', (req, res) => {
+  try {
+    const start = String(req.query.start || '').substring(0, 10);
+    const end = String(req.query.end || '').substring(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+      return res.status(400).json({ success: false, error: '请传 start、end（YYYY-MM-DD）' });
+    }
+    const user = getPersonnelById(curPersonnelId());
+    let visibleCodes = null;
+    if (user && (user.roleId === 'mtPersonnel' || user.roleId === 'mtLeader')) {
+      // 导出侧：仅本人被指派且已归档的单据 —— 用空 Set 占位后在 list 后再滤 assignee
+      visibleCodes = null;
+    } else if (!user || (user.roleId !== 'mtSupervisor' && user.roleId !== 'mtDirector' && user.roleId !== 'admin')) {
+      visibleCodes = assignments.resolveVisibleCodes(user);
+    }
+    let { range, list } = v2.listCompletedRepairsInRange(start, end, visibleCodes);
+    if (user && (user.roleId === 'mtPersonnel' || user.roleId === 'mtLeader')) {
+      list = list.filter(p => p.repairData && p.repairData.assignee === user.id);
+    }
+    if (!list.length) {
+      return res.status(404).json({ success: false, error: '该时间段内无已完成维修工单' });
+    }
+    const rows = v2.repairRecordReportRows(list);
+    const aoa = [];
+    aoa.push(['HG-DMS-02-01-03-14-R-02: 设备维修记录']);
+    aoa.push(['设备维修记录']);
+    aoa.push([
+      '序号', '设备维保工单号', '资产编号', '资产名称', '规格型号', '使用部门', '资产分类',
+      '停台统计', '', '', '',
+      '修理情况', '', '', '',
+      '安保情况', '', '', '',
+      '备注',
+    ]);
+    aoa.push([
+      '', '', '', '', '', '', '',
+      '开始时间', '结束时间', '停台时间', '停台类型',
+      '维修内容', '更换备件', '故障原因', '维保人员',
+      '安全交底内容', '危险作业票1', '危险作业票2', '危险作业票3',
+      '',
+    ]);
+    rows.forEach(r => {
+      aoa.push([
+        r.seq, r.id, r.deviceCode, r.deviceName, r.spec, r.dept, r.assetClass,
+        r.startTime, r.endTime, r.stopHours, r.stopType,
+        r.repairContent, r.spareParts, r.faultReason, r.assigneeName,
+        r.safetyBriefing, r.ticket1, r.ticket2, r.ticket3,
+        r.remark,
+      ]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const merges = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 19 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 19 } },
+      { s: { r: 2, c: 7 }, e: { r: 2, c: 10 } },
+      { s: { r: 2, c: 11 }, e: { r: 2, c: 14 } },
+      { s: { r: 2, c: 15 }, e: { r: 2, c: 18 } },
+    ];
+    for (let c = 0; c <= 6; c++) merges.push({ s: { r: 2, c }, e: { r: 3, c } });
+    merges.push({ s: { r: 2, c: 19 }, e: { r: 3, c: 19 } });
+    ws['!merges'] = merges;
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 10 },
+      { wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 10 },
+      { wch: 20 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
+      { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+      { wch: 12 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '设备维修记录');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const fname = `设备维修记录_${range.start.replace(/-/g, '')}_${range.end.replace(/-/g, '')}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fname)}`);
+    res.setHeader('X-Repair-Report-Range', `${range.start}~${range.end}`);
+    res.setHeader('X-Repair-Report-Count', String(list.length));
+    res.send(buf);
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
 // V2 维修列表：GET /maintenance/repair-orders
 router.get('/repair-orders', (req, res) => {
   const { status, deviceCode } = req.query;

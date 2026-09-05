@@ -1,3 +1,4 @@
+import axios from 'axios'
 import client from './client'
 
 // Dashboard（V1.42：维保总览聚合，全部读 V2 generatedPlans）
@@ -238,6 +239,30 @@ export function createRepairOrder(data) {
 }
 export function fetchRepairOrders(params = {}) {
   return client.get('/maintenance/repair-orders', { params })
+}
+/** 设备维修记录报表（时间段·已归档）→ Blob；404/业务错误解析 JSON */
+export async function exportRepairOrdersReport({ start, end }) {
+  try {
+    const res = await axios.get('/api/maintenance/repair-orders/export', {
+      params: { start, end },
+      responseType: 'blob',
+      timeout: 60000,
+    })
+    return res.data
+  } catch (error) {
+    const data = error.response?.data
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text()
+        const j = JSON.parse(text)
+        throw new Error(j.error || '下载失败')
+      } catch (e) {
+        if (e instanceof Error && e.message && e.message !== '下载失败' && !String(e.message).includes('Unexpected')) throw e
+      }
+    }
+    const msg = error.response?.data?.error || error.message || '下载失败'
+    throw new Error(typeof msg === 'string' ? msg : '下载失败')
+  }
 }
 
 // 整改跟踪闭环
