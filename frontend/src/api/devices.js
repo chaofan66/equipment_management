@@ -4,6 +4,11 @@ export function fetchDevices(params = {}) {
   return client.get('/devices', { params })
 }
 
+/** 按资产编号精确查询（扫码落地） */
+export function fetchDeviceByCode(code) {
+  return client.get(`/devices/by-code/${encodeURIComponent(code)}`)
+}
+
 export function fetchDevice(id) {
   return client.get(`/devices/${id}`)
 }

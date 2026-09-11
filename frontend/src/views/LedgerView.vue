@@ -1,6 +1,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import QRCode from 'qrcode'
 import { useDevicesStore } from '@/stores/devices'
 import { useDictStore } from '@/stores/dict'
 import { useMaintenanceStore } from '@/stores/maintenance'
@@ -65,7 +66,7 @@ const modal = useModal()
 	    { key: 'projectNo', label: '项目号', width: '130' },
 	    { key: 'remark', label: '备注', width: '150' }
 	  ]},
-	  { key: 'actions', label: '操作', width: '160', fixed: 'right' }
+	  { key: 'actions', label: '操作', width: '140', fixed: 'right' }
 	];
 
 const codeFilter = ref('')
@@ -80,9 +81,185 @@ const drawerVisible = ref(false)
 const drawerMode = ref('view') // 'create' | 'edit' | 'view'
 const currentDevice = ref(null)
 
-// Maintenance history drawer
-const mtDrawerVisible = ref(false)
-const mtRecords = ref([])
+// 资产二维码标签弹框（Canvas 绘制，预览与下载一致）
+const qrVisible = ref(false)
+const qrDevice = ref(null)
+const qrPreviewUrl = ref('')
+const qrDownloading = ref(false)
+const qrFields = [
+  { label: '资产编号', key: 'code' },
+  { label: '资产名称', key: 'name' },
+  { label: '规格/型号', key: 'spec' },
+  { label: '归属单位', key: 'ownershipUnit' },
+  { label: '使用部门', key: 'department' },
+  { label: '管理编号', key: 'manageNo' },
+]
+/** 显示用约 6px/mm；下载按 300DPI → 85mm×50mm */
+const QR_PREVIEW_W = 510
+const QR_PREVIEW_H = 300
+const QR_JPEG_DPI = 300
+const QR_PX_W = Math.round((85 / 25.4) * QR_JPEG_DPI) // ≈1004
+const QR_PX_H = Math.round((50 / 25.4) * QR_JPEG_DPI) // ≈591
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+/** 在格子内水平垂直居中绘制多行文字（按宽度自动换行） */
+function drawCenteredWrapText(ctx, text, cx, cy, maxWidth, maxHeight, fontSize, lineHeight) {
+  const raw = String(text ?? '—')
+  ctx.font = `${fontSize}px "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#000'
+
+  const chars = [...raw]
+  const lines = []
+  let line = ''
+  for (const ch of chars) {
+    const trial = line + ch
+    if (ctx.measureText(trial).width > maxWidth && line) {
+      lines.push(line)
+      line = ch
+    } else {
+      line = trial
+    }
+  }
+  if (line) lines.push(line)
+
+  // 限制行数，超出末行加 …
+  const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight))
+  let drawLines = lines.slice(0, maxLines)
+  if (lines.length > maxLines) {
+    let last = drawLines[maxLines - 1] || ''
+    while (last.length && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1)
+    drawLines[maxLines - 1] = last + '…'
+  }
+
+  const totalH = drawLines.length * lineHeight
+  let y = cy - totalH / 2 + lineHeight / 2
+  for (const ln of drawLines) {
+    ctx.fillText(ln, cx, y)
+    y += lineHeight
+  }
+}
+
+/** 绘制 85×50 比例资产标签到 canvas */
+async function paintAssetTag(device, width, height) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  const sx = width / 85
+  const sy = height / 50
+  const u = (mm) => mm * ((sx + sy) / 2) // 平均缩放，用于线宽/字号
+
+  // 背景
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, width, height)
+
+  // 外细框
+  ctx.strokeStyle = '#000'
+  ctx.lineWidth = Math.max(1, u(0.25))
+  ctx.strokeRect(u(0.3), u(0.3), width - u(0.6), height - u(0.6))
+
+  // 内框 + 中间竖线（加粗一点，竖线顶底贴齐内框无缝）
+  const pad = u(1.2)
+  const ix = pad
+  const iy = pad
+  const iw = width - pad * 2
+  const ih = height - pad * 2
+  const borderLW = Math.max(1.5, u(0.4))
+  const divLW = Math.max(1.5, u(0.38))
+
+  const qrW = iw * 0.36
+  const infoW = iw - qrW
+  const labelW = infoW * 0.32
+  const valueW = infoW - labelW
+  const rowH = ih / 6
+  const divX = ix + infoW
+
+  // 内框（贴齐绘制，避免子线缩进产生缝隙）
+  ctx.lineWidth = borderLW
+  ctx.lineJoin = 'miter'
+  ctx.strokeRect(ix, iy, iw, ih)
+
+  // 信息区 / 二维码区竖线：从内框顶边到内框底边（与 strokeRect 路径重合，无缝）
+  ctx.lineWidth = divLW
+  ctx.lineCap = 'butt'
+  ctx.beginPath()
+  ctx.moveTo(divX, iy)
+  ctx.lineTo(divX, iy + ih)
+  ctx.stroke()
+
+  // 点状线辅助
+  function dottedLine(x1, y1, x2, y2) {
+    ctx.save()
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = Math.max(1, u(0.22))
+    ctx.setLineDash([u(0.55), u(0.45)])
+    ctx.lineCap = 'butt'
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  // 横虚线贴齐左内框到竖分隔线；竖虚线贴齐上下内框
+  for (let i = 1; i < 6; i++) {
+    const y = iy + rowH * i
+    dottedLine(ix, y, divX, y)
+  }
+  dottedLine(ix + labelW, iy, ix + labelW, iy + ih)
+
+  const fontLabel = Math.max(11, Math.round(u(2.7)))
+  const fontValue = Math.max(10, Math.round(u(2.5)))
+  const lineH = Math.max(12, Math.round(u(3.1)))
+  const cellPad = u(0.8)
+
+  qrFields.forEach((f, i) => {
+    const y0 = iy + rowH * i
+    const cy = y0 + rowH / 2
+    drawCenteredWrapText(
+      ctx, f.label,
+      ix + labelW / 2, cy,
+      labelW - cellPad * 2, rowH - cellPad,
+      fontLabel, lineH,
+    )
+    drawCenteredWrapText(
+      ctx, device?.[f.key] || '—',
+      ix + labelW + valueW / 2, cy,
+      valueW - cellPad * 2, rowH - cellPad,
+      fontValue, lineH,
+    )
+  })
+
+  // 二维码内容：打开移动端设备页（扫码展示台账 + 维保入口）
+  const code = String(device?.code || '')
+  const qrPayload = code
+    ? `${window.location.origin}/m/${encodeURIComponent(code)}`
+    : ''
+  const qrAreaX = divX
+  const qrAreaW = qrW
+  const qrData = await QRCode.toDataURL(qrPayload || ' ', {
+    width: Math.round(Math.min(qrAreaW, ih) * 0.92),
+    margin: 1,
+    errorCorrectionLevel: 'M',
+  })
+  const qrImg = await loadImage(qrData)
+  const qrSize = Math.min(qrAreaW, ih) * 0.82
+  const qrX = qrAreaX + (qrAreaW - qrSize) / 2
+  const qrY = iy + (ih - qrSize) / 2
+  ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
+
+  return canvas
+}
 
 // Edit form
 const editForm = reactive({})
@@ -290,10 +467,41 @@ async function deleteDevice(row) {
   }
 }
 
-// Open maintenance history drawer
-async function openMaintenanceHistory(row) {
-  mtRecords.value = await maintenanceStore.fetchRecords({ deviceId: row.id })
-  mtDrawerVisible.value = true
+async function openQrDialog(row) {
+  qrDevice.value = row
+  qrVisible.value = true
+  qrPreviewUrl.value = ''
+  try {
+    const canvas = await paintAssetTag(row, QR_PREVIEW_W, QR_PREVIEW_H)
+    qrPreviewUrl.value = canvas.toDataURL('image/png')
+  } catch (e) {
+    toast.error(e.message || '标签生成失败')
+  }
+}
+
+function onMoreCommand(cmd, row) {
+  if (cmd === 'qrcode') openQrDialog(row)
+}
+
+/** 下载标签 JPEG：像素按 300DPI 对应实物 85mm×50mm（与预览同一套绘制） */
+async function downloadQrJpeg() {
+  if (!qrDevice.value) return
+  qrDownloading.value = true
+  try {
+    const canvas = await paintAssetTag(qrDevice.value, QR_PX_W, QR_PX_H)
+    const url = canvas.toDataURL('image/jpeg', 0.95)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `资产标签_${qrDevice.value.code || 'device'}_85x50mm.jpg`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    toast.success('已下载 JPEG（85mm×50mm @300DPI）')
+  } catch (e) {
+    toast.error(e.message || '下载失败')
+  } finally {
+    qrDownloading.value = false
+  }
 }
 
 // Download template
@@ -387,10 +595,19 @@ onMounted(async () => {
         <span>{{ formatMoney(value) }}</span>
       </template>
       <template #cell-actions="{ row }">
-        <div class="flex items-center gap-1 pr-2">
-          <el-button type="primary" link size="small" @click.stop="openEdit(row)">编辑</el-button>
-          <el-button type="primary" link size="small" @click.stop="openMaintenanceHistory(row)">维保</el-button>
-          <el-button type="danger" link size="small" @click.stop="deleteDevice(row)">删除</el-button>
+        <div class="flex items-center gap-1 pr-1" @click.stop>
+          <el-button type="primary" link size="small" @click="openEdit(row)">编辑</el-button>
+          <el-button type="danger" link size="small" @click="deleteDevice(row)">删除</el-button>
+          <el-dropdown trigger="click" @command="(cmd) => onMoreCommand(cmd, row)">
+            <el-button size="small" class="ledger-more-btn">
+              <span class="ledger-more-dots">⋯</span>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="qrcode">二维码</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </template>
     </DataTable>
@@ -623,20 +840,32 @@ onMounted(async () => {
       </template>
     </el-drawer>
 
-    <!-- Maintenance History Drawer -->
-    <el-drawer v-model="mtDrawerVisible" title="维保记录" size="600px">
-      <el-table :data="mtRecords" size="small" stripe border empty-text="该设备暂无维保记录">
-        <el-table-column prop="id" label="记录编号" width="130" />
-        <el-table-column label="维保日期" width="140">
-          <template #default="{ row }">{{ row.arriveTime || row.checkDate || row.createdAt }}</template>
-        </el-table-column>
-        <el-table-column prop="mtType" label="维保类型" width="90" />
-        <el-table-column prop="mtPerson" label="维保人员" min-width="140" show-overflow-tooltip />
-        <el-table-column label="摘要" min-width="160" show-overflow-tooltip>
-          <template #default="{ row }">{{ (row.faultAnalysis || row.checkRecord || '').substring(0, 50) }}</template>
-        </el-table-column>
-      </el-table>
-    </el-drawer>
+    <!-- 资产二维码标签（Canvas 预览 = 下载内容） -->
+    <el-dialog
+      v-model="qrVisible"
+      title="资产二维码"
+      width="560px"
+      align-center
+      destroy-on-close
+      class="asset-qr-dialog"
+    >
+      <div class="asset-qr-stage">
+        <img
+          v-if="qrPreviewUrl"
+          :src="qrPreviewUrl"
+          class="asset-qr-preview"
+          alt="资产标签预览"
+        />
+        <div v-else class="asset-qr-loading">标签生成中…</div>
+        <div class="asset-qr-hint">标签尺寸 85mm × 50mm · 文字居中 · 下载 JPEG（300DPI）</div>
+      </div>
+      <template #footer>
+        <el-button @click="qrVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="qrDownloading" :disabled="!qrPreviewUrl" @click="downloadQrJpeg">
+          下载图片
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -652,4 +881,55 @@ onMounted(async () => {
   padding-left: 8px;
 }
 
+.ledger-more-btn {
+  padding: 0 6px !important;
+  min-width: 24px;
+  height: 22px;
+  border-color: #b3d8ff;
+  background: #ecf5ff;
+  color: #409eff;
+}
+.ledger-more-dots {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.asset-qr-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.asset-qr-preview {
+  width: 510px;
+  height: 300px;
+  display: block;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.asset-qr-hint {
+  font-size: 12px;
+  color: #909399;
+}
+.asset-qr-loading {
+  width: 510px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #dcdfe6;
+  color: #909399;
+  font-size: 13px;
+}
+</style>
+
+<style>
+.asset-qr-dialog .el-dialog__body {
+  padding: 12px 20px 8px;
+}
+.asset-qr-dialog .el-dialog__footer {
+  padding-top: 8px;
+}
 </style>

@@ -48,6 +48,19 @@ router.get('/suppliers', (req, res) => {
   res.json({ success: true, data: suppliers });
 });
 
+// GET /api/devices/by-code/:code — 精确按资产编号（扫码落地页，须在 /:id 之前）
+router.get('/by-code/:code', (req, res) => {
+  const code = decodeURIComponent(String(req.params.code || '')).trim();
+  if (!code) return res.status(400).json({ success: false, error: '缺少资产编号' });
+  const device = devices.devices.find(d => d.code === code);
+  if (!device) return res.status(404).json({ success: false, error: '设备不存在' });
+  const codes = assignments.resolveVisibleCodes(auth.getPersonnelById(auth.CURRENT_USER.personnelId || 'p001'));
+  if (codes && !codes.has(device.code)) {
+    return res.status(403).json({ success: false, error: '无权查看该设备' });
+  }
+  res.json({ success: true, data: device });
+});
+
 // GET /api/devices/:id
 router.get('/:id', (req, res) => {
   const device = devices.devices.find(d => d.id === req.params.id);

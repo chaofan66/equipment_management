@@ -10,6 +10,8 @@ const route = useRoute()
 const authStore = useAuthStore()
 const toast = useToast()
 
+const isMobile = computed(() => !!route.meta.mobile)
+
 const tabs = [
   { key: 'dashboard', label: '设备总览', route: '/dashboard', perms: ['dashboard.view'] },
   { key: 'ledger', label: '资产台账', route: '/ledger', perms: ['ledger.view'] },
@@ -38,9 +40,6 @@ function goTab(tab) {
   router.push(tab.route)
 }
 
-// ===================== 顶部右上角：人员/角色切换（V1.10） =====================
-// 下拉列出全部人员（GET /config/personnel + GET /config/roles 标注系统角色标签），
-// 点选即 switch-user（后端 POST /auth/switch-user 改写 CURRENT_USER）→ reload 全量重灌权限。
 const personnelOptions = ref([])
 const roleNameMap = ref({})
 const switchLoaded = ref(false)
@@ -75,7 +74,6 @@ function onSwitchVisible(visible) {
 }
 
 async function onSwitchUser(personnelId) {
-  // 当前人员项置灰不可选，此处再兜底
   if (!personnelId || personnelId === authStore.currentUser?.personnelId) return
   try {
     await authStore.switchUser(personnelId)
@@ -91,23 +89,28 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col">
-    <!-- Header -->
-    <header class="w-full bg-[#f3f3f5] border-b border-[#d5d5d7] h-12 flex items-center justify-between px-3 shrink-0">
-      <div class="flex items-center">
-        <button class="w-6 h-6 flex items-center justify-center mr-[22px]">
+  <div class="h-screen flex flex-col" :class="{ 'm-shell': isMobile }">
+    <!-- Header（移动扫码页保留用户切换，隐藏桌面菜单） -->
+    <header
+      class="w-full flex items-center justify-between px-3 shrink-0"
+      :class="isMobile ? 'h-11 m-header' : 'h-12 bg-[#f3f3f5] border-b border-[#d5d5d7]'"
+    >
+      <div class="flex items-center min-w-0">
+        <button v-if="!isMobile" class="w-6 h-6 flex items-center justify-center mr-[22px]">
           <img src="@/assets/images/icon_菜单.png" alt="" class="w-6 h-6">
         </button>
-        <div class="flex items-center h-5">
+        <div class="flex items-center h-5 min-w-0">
           <img src="@/assets/images/icon_logo.png" alt="Logo" class="h-5" style="width:106px">
-          <span class="w-px h-3 bg-[#dcdfe6] mx-2"></span>
-          <span class="text-[14px] text-[#303133] whitespace-nowrap select-none">恒力重工CIMS</span>
+          <span class="w-px h-3 bg-[#dcdfe6] mx-2 shrink-0"></span>
+          <span class="text-[14px] text-[#303133] whitespace-nowrap select-none truncate">
+            {{ isMobile ? '设备维保' : '恒力重工CIMS' }}
+          </span>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 shrink-0">
         <el-dropdown trigger="click" @visible-change="onSwitchVisible" @command="onSwitchUser">
           <span
-            class="text-[12px] text-[#697077] cursor-pointer outline-none"
+            class="text-[12px] text-[#697077] cursor-pointer outline-none max-w-[46vw] truncate"
             title="点击切换登录用户/角色"
           >{{ authStore.currentUser?.display || '恒力造船（大连）有限公司' }}<template v-if="currentRoleName"> · {{ currentRoleName }}</template></span>
           <template #dropdown>
@@ -126,14 +129,17 @@ onMounted(async () => {
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <button class="w-6 h-6 flex items-center justify-center">
+        <button v-if="!isMobile" class="w-6 h-6 flex items-center justify-center">
           <img src="@/assets/images/icon_rightMenu.svg" alt="" class="w-6 h-6">
         </button>
       </div>
     </header>
 
-    <!-- Tab Navigation -->
-    <nav class="w-full bg-[#f3f3f5] border-b border-[#dcdfe6] h-7 flex items-center px-1 shrink-0">
+    <!-- Tab Navigation（扫码落地页隐藏） -->
+    <nav
+      v-if="!isMobile"
+      class="w-full bg-[#f3f3f5] border-b border-[#dcdfe6] h-7 flex items-center px-1 shrink-0"
+    >
       <template v-for="(tab, i) in visibleTabs" :key="tab.key">
         <button
           class="text-[12px] rounded px-[20px] py-[2px] h-5 flex items-center flex-shrink-0 mr-1 tab-btn"
@@ -146,10 +152,19 @@ onMounted(async () => {
     </nav>
 
     <!-- Main Content -->
-    <div class="flex-1 flex flex-col min-h-0">
+    <div class="flex-1 flex flex-col min-h-0 overflow-auto">
       <router-view />
     </div>
-
-    <!-- Toast/Modal handled globally by Element Plus -->
   </div>
 </template>
+
+<style scoped>
+.m-shell {
+  background: #eef2f6;
+}
+.m-header {
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(15, 40, 70, 0.06);
+  backdrop-filter: blur(8px);
+}
+</style>

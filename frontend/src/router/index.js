@@ -2,6 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
+    path: '/m/:code',
+    name: 'mobile-device',
+    component: () => import('@/views/mobile/MobileDeviceView.vue'),
+    meta: { title: '设备信息', mobile: true }
+  },
+  {
     path: '/',
     redirect: '/dashboard'
   },
