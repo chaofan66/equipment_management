@@ -21,8 +21,8 @@ const tabs = [
   { key: 'lubrication', label: '设备润滑', route: '/maintenance/lubrication', perms: ['mt.lubrication.view', 'mt.lubrication.execute'] },
   { key: 'inspection', label: '定期检查', route: '/maintenance/inspection', perms: ['mt.inspection.view', 'mt.inspection.execute'] },
   { key: 'repair', label: '维修工单', route: '/maintenance/repair', perms: ['mt.repair.view', 'mt.repair.report', 'mt.repair.dispatch', 'mt.repair.repair', 'mt.repair.accept', 'mt.repair.approve'] },
-  { key: 'training', label: '设备培训', route: '/maintenance/training', perms: ['mt.training.view', 'mt.training.edit'] },
   { key: 'file-config', label: '标准文件配置', route: '/maintenance/file-config', perms: ['mt.stdconfig.view', 'mt.stdconfig.edit'] },
+  { key: 'training', label: '设备培训', route: '/maintenance/training/exam', routes: ['/maintenance/training/exam', '/maintenance/training/course'], perms: ['exam.config.view', 'exam.config.edit', 'exam.practice', 'course.config.view', 'course.config.edit', 'course.view'] },
   // V1.49 拆为「车间分配/维保分配」两 tab → V1.50 合并回「设备分配」单 tab：页内 车间/维保 两个子 tab（AssignView/MtAssignView 嵌套 SubTabs），权限=两体系并集
   // V1.51 修复：routes 配置两路由（车间/维保子 tab 目标），切「维保」子 tab 后主菜单仍保持「设备分配」选中（不会跑到「维保总览」）
   { key: 'assign', label: '设备分配', route: '/maintenance/assign', routes: ['/maintenance/assign', '/maintenance/assign-mt'], perms: ['mt.assign.view', 'mt.assign.edit', 'mt.assignmt.view', 'mt.assignmt.edit'] }

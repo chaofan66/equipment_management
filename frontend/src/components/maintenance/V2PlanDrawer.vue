@@ -18,7 +18,7 @@ const submitting = ref(false)
 const activeTab = ref('info')
 const statusTypeMap = { '待执行': 'warning', '进行中': '', '已超期': 'danger', '已归档': 'success' }
 
-const projectNames = { daily_check: '日常点检', level1: '一级保养', level2: '二级保养', lubrication: '设备润滑', periodic_inspection: '定期检查', training: '设备培训', repair: '设备维修' }
+const projectNames = { daily_check: '日常点检', level1: '一级保养', level2: '二级保养', lubrication: '设备润滑', periodic_inspection: '定期检查', repair: '设备维修' }
 const handlingOpinions = ['停机处理', '列入维修计划（建议完成时限）', '继续观察运行']
 const dangerTypes = ['高处作业', '动火作业', '受限空间', '吊装作业']
 // V1.37 维修完工提交（《维保完工提交内容.jpg》）下拉选项
@@ -39,6 +39,12 @@ const dcStates = [
   { v: '停工', cls: 'dc-stop' },
 ]
 
+const drawerTitle = computed(() => {
+  if (!plan.value) return '处理'
+  const name = plan.value.deviceName || ''
+  const type = projectNames[plan.value.projectType] || plan.value.projectType || ''
+  return type ? `处理：${name}（${type}）` : `处理：${name}`
+})
 const currentStep = computed(() => plan.value?.steps.find(s => s.status !== 'done'))
 // PRD §7.3.1：班后三项合计，超 24h 前端警告
 const afterShiftSum = computed(() => {
@@ -177,7 +183,7 @@ function onAttPreview(file) {
 </script>
 
 <template>
-  <el-drawer v-model="visible" :title="'处理：' + (plan?.deviceName || '') + '（' + projectNames[plan?.projectType] + '）'" size="640px" destroy-on-close>
+  <el-drawer v-model="visible" :title="drawerTitle" size="640px" destroy-on-close>
     <!-- V2 双 Tab：基本信息（基础信息+当前表单）/ 操作记录（审批时间线） -->
     <el-tabs v-if="plan" v-model="activeTab" class="plan-tabs">
       <el-tab-pane label="基本信息" name="info">

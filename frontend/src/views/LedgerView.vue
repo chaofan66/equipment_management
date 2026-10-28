@@ -86,12 +86,28 @@ const qrVisible = ref(false)
 const qrDevice = ref(null)
 const qrPreviewUrl = ref('')
 const qrDownloading = ref(false)
+/** 使用部门 + 车间（台账编辑为「部门→车间」，车间常落在 area；亦可能有 workshop） */
+function formatQrDeptWorkshop(device) {
+  const dept = String(device?.department || '').trim()
+  const workshop = String(device?.workshop || '').trim()
+  const area = String(device?.area || '').trim()
+  if (workshop) {
+    if (!dept || workshop.includes(dept)) return workshop
+    return `${dept}/${workshop}`
+  }
+  if (dept && area) {
+    if (area.includes(dept)) return area
+    return `${dept}/${area}`
+  }
+  return dept || area || '—'
+}
+
 const qrFields = [
   { label: '资产编号', key: 'code' },
   { label: '资产名称', key: 'name' },
   { label: '规格/型号', key: 'spec' },
   { label: '归属单位', key: 'ownershipUnit' },
-  { label: '使用部门', key: 'department' },
+  { label: '使用部门', format: formatQrDeptWorkshop },
   { label: '管理编号', key: 'manageNo' },
 ]
 /** 显示用约 6px/mm；下载按 300DPI → 85mm×50mm */
@@ -226,6 +242,9 @@ async function paintAssetTag(device, width, height) {
   qrFields.forEach((f, i) => {
     const y0 = iy + rowH * i
     const cy = y0 + rowH / 2
+    const value = typeof f.format === 'function'
+      ? f.format(device)
+      : (device?.[f.key] || '—')
     drawCenteredWrapText(
       ctx, f.label,
       ix + labelW / 2, cy,
@@ -233,7 +252,7 @@ async function paintAssetTag(device, width, height) {
       fontLabel, lineH,
     )
     drawCenteredWrapText(
-      ctx, device?.[f.key] || '—',
+      ctx, value,
       ix + labelW + valueW / 2, cy,
       valueW - cellPad * 2, rowH - cellPad,
       fontValue, lineH,

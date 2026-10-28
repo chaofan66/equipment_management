@@ -7,6 +7,7 @@ const { devices } = require('../data/devices');
 const { CURRENT_USER, PERSONNEL, getPersonnelById, resolveDataScope, MAINTENANCE_TEAMS } = require('../data/auth');
 const mc = require('../data/maintenanceConfig');
 const v2 = require('../data/maintenanceV2');
+const exam = require('../data/examStore');
 const assignments = require('../data/assignments');   // V1.46 设备分配（统一数据范围 resolveVisibleCodes）
 const mtAssignments = require('../data/mtAssignments');   // V1.49 维保分配（维修工单按指派可见 carve-out）
 
@@ -75,6 +76,23 @@ router.get('/templates/tree', (req, res) => {
   res.json({ success: true, data: tree });
 });
 
+// 标准文件全局设置：GET/PUT /maintenance/templates/settings
+//   { yearRoundExecution: boolean } —— 开启全年执行后，已上传标准的模块禁用「添加月份」，
+//   解析当月无记录时回退最新已配置标准，月初自动按该标准执行。
+// ⚠️ 静态段 settings 必须定义在参数路由 :typeCode/:fileCode 之前
+router.get('/templates/settings', (req, res) => {
+  res.json({ success: true, data: mc.getStandardFileSettings() });
+});
+router.put('/templates/settings', (req, res) => {
+  try {
+    const data = mc.setStandardFileSettings(req.body || {});
+    Object.keys(mc.configCache).forEach(k => delete mc.configCache[k]);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
 // 模块清单：GET /maintenance/templates/modules?typeCode=（每小类各自维护；懒播种 6 个默认模块）
 // V1.57：每条记录 locked 补「该月已排期」判定（listTemplateRecords 无 plans 上下文，route 层补）+ 返回 today
 // ⚠️ 静态段 modules 必须定义在参数路由 :typeCode/:fileCode 之前，否则会被误匹配
@@ -89,7 +107,12 @@ router.get('/templates/modules', (req, res) => {
       });
     }
   });
-  res.json({ success: true, data: modules, today: mc.serverTodayStr() });
+  res.json({
+    success: true,
+    data: modules,
+    today: mc.serverTodayStr(),
+    yearRoundExecution: mc.isYearRoundExecution(),
+  });
 });
 
 // 新增模块：POST /maintenance/templates/modules {typeCode, code, name}
@@ -109,6 +132,10 @@ router.post('/templates/:typeCode/:fileCode/copy', (req, res) => {
     const { typeCode, fileCode } = req.params;
     if (!/^\d{6}$/.test(typeCode)) return res.status(400).json({ success: false, error: 'typeCode 须为 6 位小类编码' });
     if (fileCode === '01') return res.status(400).json({ success: false, error: '01 安全操作规程不参与按月复制' });
+    // 全年执行：已上传过标准的模块禁止再「添加月份」（复制）
+    if (mc.isYearRoundExecution() && mc.moduleHasAnyRecord(typeCode, fileCode)) {
+      return res.status(403).json({ success: false, error: '已开启全年执行：该模块已上传标准文件，无需再添加月份' });
+    }
     let { fromMonth, toMonth } = req.body || {};
     if (!/^\d{4}-\d{2}$/.test(toMonth || '')) return res.status(400).json({ success: false, error: '缺少目标月份 toMonth（YYYY-MM）' });
     if (!/^\d{4}-\d{2}$/.test(fromMonth || '')) {
@@ -215,16 +242,34 @@ router.post('/templates/import', uploadMemory, (req, res) => {
     // 锁定校验在 XLSX.read 解析之前拦截，避免解析落盘后才 403 无法回滚
     if (fileCode !== '01') {
       if (!/^\d{4}-\d{2}$/.test(month || '')) return res.status(400).json({ success: false, error: '缺少执行月份（YYYY-MM）' });
+      // 全年执行：已有标准时禁止「添加新月份」上传；已有该月记录的「上传替换」仍允许
+      const existingMonth = mc.getTemplateRecord(typeCode, fileCode, month);
+      if (mc.isYearRoundExecution() && mc.moduleHasAnyRecord(typeCode, fileCode) && !(existingMonth && mc.hasTemplateContent(existingMonth))) {
+        return res.status(403).json({ success: false, error: '已开启全年执行：该模块已上传标准文件，无需再添加月份；如需更新请用「上传替换」' });
+      }
       mc.assertMonthNotLocked(typeCode, fileCode, month, monthHasPlans(typeCode, fileCode, month));
     }
     const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
-    let extraRows = null;
-    const extraSheet = wb.SheetNames.find(n => n.includes('附加'));
-    if (extraSheet) extraRows = XLSX.utils.sheet_to_json(wb.Sheets[extraSheet], { header: 1, defval: '', raw: true });
-    // V1.17：固定 6 类（01-06）解析为维保结构化内容；其他编号仅存 rawRows（不再支持附加标准文件）
-    const structured = ['01', '02', '03', '04', '05', '06'].includes(fileCode);
-    const parsed = structured ? mc.parseTemplateExcel(fileCode, rows, extraRows) : { rawRows: rows };
+    let parsed;
+    if (fileCode === '01' && exam.isQuestionBankWorkbook(wb.SheetNames)) {
+      const sheets = {};
+      exam.QUESTION_SHEETS.forEach(name => {
+        sheets[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: false });
+      });
+      const raw = exam.parseQuestionBankSheets(sheets, typeCode);
+      const savedBank = exam.importRawBank(raw);
+      parsed = {
+        status: 'active',
+        questionBank: { code: savedBank.code, name: savedBank.name, counts: savedBank.counts },
+      };
+    } else {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
+      let extraRows = null;
+      const extraSheet = wb.SheetNames.find(n => n.includes('附加'));
+      if (extraSheet) extraRows = XLSX.utils.sheet_to_json(wb.Sheets[extraSheet], { header: 1, defval: '', raw: true });
+      const structured = ['01', '02', '03', '04', '05', '06'].includes(fileCode);
+      parsed = structured ? mc.parseTemplateExcel(fileCode, rows, extraRows) : { rawRows: rows };
+    }
     // 修复 multer 对中文文件名的编码问题（latin1 → utf8，与 app.js 上传同一手法）
     let originalName = req.file.originalname;
     try { originalName = Buffer.from(originalName, 'latin1').toString('utf8'); } catch (_) {}
@@ -237,7 +282,10 @@ router.post('/templates/import', uploadMemory, (req, res) => {
       stdCode: typeCode + fileCode, // 标准文件编码：上传文件后自动生成
       version: ((prev && prev.version) || 0) + 1,
     });
-    const count = parsed.items?.length || parsed.points?.length || parsed.categories?.length || parsed.safetyProcedure?.sections?.length || parsed.rawRows?.length || 0;
+    const qb = parsed.questionBank && parsed.questionBank.counts;
+    const count = qb
+      ? (qb.single || 0) + (qb.multi || 0) + (qb.fill || 0) + (qb.essay || 0)
+      : (parsed.items?.length || parsed.points?.length || parsed.categories?.length || parsed.safetyProcedure?.sections?.length || parsed.rawRows?.length || 0);
     Object.keys(mc.configCache).forEach(k => delete mc.configCache[k]);
     res.json({
       success: true,
@@ -255,7 +303,7 @@ router.post('/templates/import', uploadMemory, (req, res) => {
 
 // ===================== 职责角色（§5.8） =====================
 // V1.9：角色即职责，roleBindings/proxies 已废弃；resolveRoleBindings 按系统角色派生。
-// 仅保留 role-bindings/options（TrainingView 使用）。
+// 仅保留 role-bindings/options。
 
 // 候选下拉：GET /maintenance/config/role-bindings/options
 router.get('/config/role-bindings/options', (req, res) => {
@@ -392,6 +440,54 @@ router.post('/v2-plans/batch', (req, res) => {
   } catch (e) { res.status(400).json({ success: false, error: e.message }); }
 });
 
+// 保养计划批量取消：POST /maintenance/v2-plans/batch-cancel
+// body: { workshop, year, level: 'level1'|'level2'|'lubrication', months: [2,4], deviceCodes: [] }
+// 仅作废「待执行」保养单；进行中/已归档/已超期跳过；草稿勾选由前端同步清除
+router.post('/v2-plans/batch-cancel', (req, res) => {
+  try {
+    const scope = dataScope();
+    const workshop = scope.type === 'workshop' ? scope.workshop : req.body.workshop;
+    if (!workshop) return res.status(400).json({ success: false, error: '缺少车间 workshop' });
+    const codes = assignments.resolveVisibleCodes(getPersonnelById(curPersonnelId()));
+    const { year, level, months, deviceCodes } = req.body || {};
+    const y = parseInt(year) || new Date().getFullYear();
+    if (!['level1', 'level2', 'lubrication'].includes(level)) {
+      return res.status(400).json({ success: false, error: 'level 须为 level1 / level2 / lubrication' });
+    }
+    const monthList = (Array.isArray(months) ? months : []).map(m => parseInt(m)).filter(m => m >= 1 && m <= 12);
+    if (!monthList.length) return res.status(400).json({ success: false, error: '请选择要取消的月份' });
+    const list = Array.isArray(deviceCodes) ? deviceCodes : [];
+    if (!list.length) return res.status(400).json({ success: false, error: '请先按资产类型或资产分类筛选出设备' });
+    list.forEach(code => {
+      const device = mc.getDeviceByCode(code);
+      if (!device) throw new Error('设备不存在: ' + code);
+      if (device.workshop !== workshop) throw new Error('设备 ' + code + ' 不属于车间 ' + workshop);
+      if (codes && !codes.has(code)) throw new Error('设备 ' + code + ' 未分配给本人，不能取消排期');
+    });
+    const result = v2.voidDevicePlansAtMonths({
+      deviceCodes: list,
+      projectType: level,
+      year: y,
+      months: monthList,
+      reason: '批量取消排期',
+    });
+    v2.refreshStatuses();
+    const levelName = level === 'level1' ? '一级' : level === 'level2' ? '二级' : '润滑';
+    const parts = [];
+    if (result.voided.length) parts.push(`已取消 ${result.voided.length} 张待执行${levelName}保养单`);
+    if (result.skipped.length) parts.push(`${result.skipped.length} 张因进行中/已归档/已超期未取消`);
+    const message = parts.length ? parts.join('；') : '所选月份无待执行保养单可取消（草稿勾选已由前端清除）';
+    res.json({
+      success: true,
+      data: {
+        workshop, year: y, level, months: monthList,
+        voided: result.voided.length, skipped: result.skipped,
+        message,
+      },
+    });
+  } catch (e) { res.status(400).json({ success: false, error: e.message }); }
+});
+
 // V1.33 图片附件上传（磁盘落盘 uploads/，复用 /uploads 静态服务 + 20MB 限制）：
 // POST /maintenance/v2-plans/:id/step/:stepNo/attachment（multipart field=file）
 const uploadAtt = multer({ storage: multer.diskStorage({
@@ -436,26 +532,6 @@ router.put('/v2-plans/:id/reschedule', (req, res) => {
   try {
     const plan = v2.reschedulePlan(req.params.id, req.body.newDate, { reason: req.body.reason, by: CURRENT_USER.name });
     res.json({ success: true, data: plan });
-  } catch (e) { res.status(400).json({ success: false, error: e.message }); }
-});
-
-// ===================== 培训（§5.3(5) 活动粒度） =====================
-router.get('/training-records', (req, res) => {
-  let result = [...v2.trainingRecords];
-  const { year, month, status } = req.query;
-  if (year) result = result.filter(t => t.year === parseInt(year));
-  if (month) result = result.filter(t => t.month === parseInt(month));
-  if (status) result = result.filter(t => t.status === status);
-  res.json({ success: true, data: result, total: result.length });
-});
-router.post('/training-records', (req, res) => {
-  const act = v2.createTrainingActivity(req.body);
-  res.status(201).json({ success: true, data: act });
-});
-router.put('/training-records/:id', (req, res) => {
-  try {
-    const act = v2.advanceTraining(req.params.id, { ...req.body, personnelId: req.body.personnelId || curPersonnelId() });
-    res.json({ success: true, data: act });
   } catch (e) { res.status(400).json({ success: false, error: e.message }); }
 });
 

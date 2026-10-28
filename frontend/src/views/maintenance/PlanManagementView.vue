@@ -2,11 +2,13 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useDevicesStore } from '@/stores/devices'
 import { useToast } from '@/composables/useToast'
+import { useModal } from '@/composables/useModal'
 import V2PlanDrawer from '@/components/maintenance/V2PlanDrawer.vue'
-import { createV2PlansBatch, fetchV2PlanGrid } from '@/api/maintenance'
+import { createV2PlansBatch, cancelV2PlansBatch, fetchV2PlanGrid } from '@/api/maintenance'
 
 const devicesStore = useDevicesStore()
 const toast = useToast()
+const modal = useModal()
 
 const levelTab = ref('level1') // 'level1'(一级保养计划) | 'level2'(二级保养计划) | 'lubrication'(润滑计划)，级别由 tab 决定
 // V1.17：级别名称/标签色 3 档（润滑镜像二级保养，05 设备润滑标准）
@@ -15,17 +17,29 @@ const levelTagType = { level1: 'success', level2: 'primary', lubrication: 'warni
 // V1.17：空态文案按 tab 级别（润滑 → 05 设备润滑标准）
 const emptyGridText = computed(() => {
   const tpl = levelTab.value === 'level1' ? '一级保养(03)' : levelTab.value === 'level2' ? '二级保养(04)' : '设备润滑(05)'
-  const cat = categoryFilter.value
-  return cat?.length ? `该车间「${cat.join(' / ')}」暂无配${tpl}标准的设备` : `该车间暂无配${tpl}标准的设备`
+  const parts = []
+  if (categoryFilter.value?.length) parts.push(categoryFilter.value.join(' / '))
+  if (classFilter.value) parts.push(`分类 ${classFilter.value}`)
+  return parts.length ? `该车间「${parts.join(' · ')}」暂无配${tpl}标准的设备` : `该车间暂无配${tpl}标准的设备`
 })
 const selectedYear = ref(new Date().getFullYear())
 const selectedWorkshop = ref('') // 车间必选（按车间管理）
 
-// V1.4：资产类别筛选（大类/中类/小类级联，车间内收窄）＋一键整类排期
-const categoryFilter = ref([]) // 如 ['起重设备','起重机'] 或 ['起重设备','起重机','通用桥式起重机']，空=不过滤
+// 资产类型筛选（大类/中类/小类级联，车间内收窄）＋资产分类筛选（A/B/CT…）→ 任一可批量排期/取消
+const categoryFilter = ref([]) // 如 ['起重设备','起重机']，空=不过滤
+const classFilter = ref('')    // 资产分类 A/B/CT/C1/C2，空=不过滤
 const cascaderProps = { checkStrictly: true, expandTrigger: 'hover' } // 固定引用：避免每次渲染新建对象致 cascader 重初始化回写 undefined
 const batchDialogVisible = ref(false)
 const batchMonths = ref([])
+const batchMode = ref('schedule') // 'schedule' | 'cancel'
+const batchCancelling = ref(false)
+const canBatch = computed(() => !!(categoryFilter.value?.length || classFilter.value))
+const batchFilterLabel = computed(() => {
+  const parts = []
+  if (categoryFilter.value?.length) parts.push(categoryFilter.value.join(' / '))
+  if (classFilter.value) parts.push(`资产分类 ${classFilter.value}`)
+  return parts.join(' · ') || '未筛选'
+})
 
 // 网格状态：rows(服务端行) / draft(勾选草稿) / baseline(加载快照)
 const gridLoading = ref(false)
@@ -56,7 +70,7 @@ function deviceField(row, key) {
   return d && d[key] !== undefined && d[key] !== null ? String(d[key]) : ''
 }
 
-// V1.4：资产类别筛选选项——当前车间设备的 type（"大类/中类/小类"）去重构建级联树（type 段数 1~3 可变）
+// 资产类型筛选选项——当前车间设备的 type（"大类/中类/小类"）去重构建级联树
 const categoryOptions = computed(() => {
   const root = {}
   devicesStore.list.forEach(d => {
@@ -77,18 +91,36 @@ const categoryOptions = computed(() => {
   })
   return toArr(root)
 })
-// V1.4：资产类别筛选（前端本地过滤）——设备 type 分段逐段前缀匹配所选 path
+// 资产分类选项（台账 assetCategory，车间内去重）
+const classOptions = computed(() => {
+  const set = new Set()
+  devicesStore.list.forEach(d => {
+    if (selectedWorkshop.value && d.workshop !== selectedWorkshop.value) return
+    const c = String(d.assetCategory || '').trim()
+    if (c) set.add(c)
+  })
+  return Array.from(set).sort()
+})
+// 资产类型 + 资产分类联合过滤（都选则取交集）
 const filteredRows = computed(() => {
   const path = categoryFilter.value
-  if (!path || !path.length) return rows.value
+  const cls = classFilter.value
   return rows.value.filter(r => {
     const d = deviceMap.value[r.deviceCode]
-    if (!d || !d.type) return false
-    const segs = String(d.type).split('/').map(s => s.trim()).filter(Boolean)
-    return path.every((p, i) => segs[i] === p)
+    if (!d) return false
+    if (path?.length) {
+      if (!d.type) return false
+      const segs = String(d.type).split('/').map(s => s.trim()).filter(Boolean)
+      if (!path.every((p, i) => segs[i] === p)) return false
+    }
+    if (cls) {
+      if (String(d.assetCategory || '').trim() !== cls) return false
+    }
+    return true
   })
 })
 function onCategoryChange() { gridPage.value = 1 }
+function onClassChange() { gridPage.value = 1 }
 
 // ===================== 计划网格列定义（两层表头，源对齐 Excel《设备台账-1615-试验版-保养设置》设备台账 sheet；按需求去掉配置信息/财务信息/附属信息，职责信息不含） =====================
 const MONTH_WIDTH = 46
@@ -251,8 +283,13 @@ async function saveGrid() {
 
 function refresh() { loadGrid() }
 
-// V1.4：一键整类排期——对当前筛选类别（车间内、配当前 tab 标准）全部设备批量勾选所选月份
-function openBatchDialog() {
+// 一键整类排期 / 批量取消——对当前筛选（资产类型或资产分类）设备操作所选月份
+function openBatchDialog(mode = 'schedule') {
+  if (!canBatch.value) {
+    toast.info('请先按资产类型或资产分类筛选后再操作')
+    return
+  }
+  batchMode.value = mode
   batchMonths.value = []
   batchDialogVisible.value = true
 }
@@ -281,13 +318,55 @@ function applyBatchSchedule() {
   })
   batchDialogVisible.value = false
   batchMonths.value = []
-  toast.success(`已为 ${deviceCount} 台设备的 ${monthCount} 个月份勾选（已有保养单/过去月份自动跳过）`)
+  toast.success(`已为 ${deviceCount} 台设备的 ${monthCount} 个月份勾选（已有保养单/过去月份自动跳过）。请点击「保存计划」落库。`)
+}
+async function applyBatchCancel() {
+  const sel = batchMonths.value.filter(m => !isPastMonth(m))
+  if (!sel.length) { toast.info('请先选择要取消的月份'); return }
+  try {
+    await modal.confirm(
+      `确定清除「${batchFilterLabel.value}」共 ${filteredRows.value.length} 台设备在 ${sel.map(m => m + '月').join('、')} 的排期？\n将作废其中仍为「待执行」的保养单，并清除未保存的草稿勾选。`
+    )
+  } catch (_) { return }
+  // 1）清除草稿勾选（未落库）
+  let draftCleared = 0
+  filteredRows.value.forEach(r => {
+    if (!draft.value[r.deviceCode]) return
+    sel.forEach(m => {
+      if (planAt(r, m)) return // 已有单交给后端作废
+      if (draft.value[r.deviceCode][m]) {
+        draft.value[r.deviceCode][m] = false
+        draftCleared++
+      }
+    })
+  })
+  // 2）作废筛选设备在所选月的「待执行」保养单
+  const deviceCodes = filteredRows.value.map(r => r.deviceCode)
+  batchCancelling.value = true
+  try {
+    const res = await cancelV2PlansBatch({
+      workshop: selectedWorkshop.value,
+      year: selectedYear.value,
+      level: levelTab.value,
+      months: sel,
+      deviceCodes,
+    })
+    batchDialogVisible.value = false
+    batchMonths.value = []
+    const msg = res.data?.message || '已取消'
+    toast.success(draftCleared ? `${msg}；另清除草稿勾选 ${draftCleared} 个` : msg)
+    await loadGrid()
+  } catch (e) {
+    toast.error(e.response?.data?.error || e.message || '批量取消失败')
+  } finally {
+    batchCancelling.value = false
+  }
 }
 
 // 车间/年份/tab 变化 → 网格重载（loadGrid 重建 draft/baseline，切 tab 不残留上 tab 勾选）
 watch([selectedYear, selectedWorkshop, levelTab], loadGrid)
-// 切换车间 → 重置类别筛选（级联选项按车间构建）
-watch(selectedWorkshop, () => { categoryFilter.value = [] })
+// 切换车间 → 重置类型/分类筛选（选项按车间构建）
+watch(selectedWorkshop, () => { categoryFilter.value = []; classFilter.value = '' })
 // 防御：cascader 偶发回写 null/undefined 时归一为空数组（避免 categoryFilter.length 崩溃）
 watch(categoryFilter, v => { if (v == null || !Array.isArray(v)) categoryFilter.value = [] })
 
@@ -317,13 +396,25 @@ onMounted(async () => {
         v-model="categoryFilter"
         :options="categoryOptions"
         :props="cascaderProps"
-        placeholder="资产类别筛选"
-        clearable filterable size="small" style="width:210px"
+        placeholder="资产类型"
+        clearable filterable size="small" style="width:200px"
         @change="onCategoryChange"
       />
+      <el-select
+        v-model="classFilter"
+        size="small"
+        clearable
+        filterable
+        placeholder="资产分类"
+        style="width:120px"
+        @change="onClassChange"
+      >
+        <el-option v-for="c in classOptions" :key="c" :label="c" :value="c" />
+      </el-select>
       <div class="flex-1" />
       <span class="text-xs text-[#909399]">勾选月份=该设备该月保养1次 · 已完成=绿 / 超期未完成=红 · 过去的空月份置灰不可点</span>
-      <el-button size="small" :disabled="!categoryFilter?.length" @click="openBatchDialog">批量排期</el-button>
+      <el-button size="small" :disabled="!canBatch" @click="openBatchDialog('schedule')">批量排期</el-button>
+      <el-button size="small" :disabled="!canBatch" @click="openBatchDialog('cancel')">批量取消</el-button>
       <el-button type="primary" size="small" :loading="saving" :disabled="!gridDirty" @click="saveGrid">保存计划</el-button>
       <el-button size="small" @click="refresh">刷新</el-button>
     </div>
@@ -381,14 +472,22 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- V1.4：一键整类排期弹窗（选月份→应用到整类设备草稿；过去月份禁用） -->
+    <!-- 批量排期 / 批量取消：按资产类型或资产分类筛选后，选择月份一键勾选或清除 -->
     <el-dialog
       v-model="batchDialogVisible"
-      :title="`批量排期：${(categoryFilter || []).join(' / ') || '未选类别'}`"
-      width="420px"
+      :title="`${batchMode === 'cancel' ? '批量取消' : '批量排期'}：${batchFilterLabel}`"
+      width="440px"
       append-to-body
     >
-      <div class="text-xs text-[#909399] mb-3">将对当前车间「{{ selectedWorkshop }}」、该类别全部设备勾选所选月份（已有保养单/过去月份自动跳过）。</div>
+      <div class="text-xs text-[#909399] mb-3">
+        当前车间「{{ selectedWorkshop }}」，筛选范围 {{ filteredRows.length }} 台。
+        <template v-if="batchMode === 'cancel'">
+          将清除所选月份的草稿勾选，并作废其中仍为「待执行」的保养单（进行中/已归档/已超期/过去月自动跳过）。
+        </template>
+        <template v-else>
+          将勾选所选月份（已有保养单/过去月份自动跳过）。
+        </template>
+      </div>
       <div class="flex flex-wrap gap-2">
         <el-checkbox
           v-for="m in months" :key="m"
@@ -399,7 +498,14 @@ onMounted(async () => {
       </div>
       <template #footer>
         <el-button size="small" @click="batchDialogVisible = false">取消</el-button>
-        <el-button size="small" type="primary" @click="applyBatchSchedule">确定排期</el-button>
+        <el-button
+          v-if="batchMode === 'cancel'"
+          size="small"
+          type="danger"
+          :loading="batchCancelling"
+          @click="applyBatchCancel"
+        >确定清除</el-button>
+        <el-button v-else size="small" type="primary" @click="applyBatchSchedule">确定排期</el-button>
       </template>
     </el-dialog>
 

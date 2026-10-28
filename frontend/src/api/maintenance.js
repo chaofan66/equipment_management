@@ -147,6 +147,13 @@ export function copyTemplateRecord(typeCode, fileCode, fromMonth, toMonth) {
 export function fetchTemplateModules(typeCode) {
   return client.get('/maintenance/templates/modules', { params: { typeCode } })
 }
+// 标准文件全局设置（全年执行开关）
+export function fetchTemplateSettings() {
+  return client.get('/maintenance/templates/settings')
+}
+export function saveTemplateSettings(data) {
+  return client.put('/maintenance/templates/settings', data)
+}
 export function createTemplateModule(data) {
   return client.post('/maintenance/templates/modules', data)
 }
@@ -154,7 +161,7 @@ export function updateTemplateModule(typeCode, code, data) {
   return client.put(`/maintenance/templates/modules/${typeCode}/${code}`, data)
 }
 
-// 职责角色绑定（仅保留候选下拉，TrainingView 使用；其余配置接口随「维保配置」tab 删除）
+// 职责角色绑定（仅保留候选下拉；其余配置接口随「维保配置」tab 删除）
 export function fetchRoleOptions() {
   return client.get('/maintenance/config/role-bindings/options')
 }
@@ -179,6 +186,10 @@ export function generateV2Daily(data = {}) {
 export function createV2PlansBatch(data) {
   return client.post('/maintenance/v2-plans/batch', data)
 }
+// 保养计划批量取消：作废筛选设备在所选月份的「待执行」保养单
+export function cancelV2PlansBatch(data) {
+  return client.post('/maintenance/v2-plans/batch-cancel', data)
+}
 // 保养计划网格（§5.3(3) V1.3）：?workshop&year&level（level1|level2，tab 决定级别）→ 设备×12月 可勾选网格（仅列配对应 03/04 标准设备 + 各月已有该级别保养单）
 export function fetchV2PlanGrid(params = {}) {
   return client.get('/maintenance/v2-plans/plan-config', { params })
@@ -200,17 +211,6 @@ export function uploadInspectionAttachment(file) {
 }
 export function rescheduleV2Plan(id, data) {
   return client.put(`/maintenance/v2-plans/${id}/reschedule`, data)
-}
-
-// 培训
-export function fetchTrainingRecords(params = {}) {
-  return client.get('/maintenance/training-records', { params })
-}
-export function createTrainingRecord(data) {
-  return client.post('/maintenance/training-records', data)
-}
-export function advanceTrainingRecord(id, data) {
-  return client.put(`/maintenance/training-records/${id}`, data)
 }
 
 // KPI / 台时

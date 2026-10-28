@@ -14,7 +14,6 @@ const mtAssignments = require('./mtAssignments');   // V1.49 维保分配（二�
 
 // ===================== V2 实例存储 =====================
 const generatedPlans = [];     // 各项目实例（日常点检/一二级保养/定期检查/设备维保/培训）
-const trainingRecords = [];    // 培训活动（§5.3(5) 按活动粒度，覆盖多台设备）
 const kpiRecords = [];         // 台时记录（§5.9(3) 按设备运行日历逐日维护）
 const rectifications = require('./maintenance').rectificationItems; // 整改跟踪（复用）
 
@@ -92,9 +91,9 @@ function deriveStatus(plan) {
       // V1.54：月度保养按执行时间段判超期（执行期结束仍未完成为已超期）
       if (monthlyPlanPeriodEnd(plan) < fmtDate(new Date())) return '已超期';
     } else {
-      // 其余类型（日常点检/定期检查/培训）保持原「计划日期 + 宽限期」规则
+      // 其余类型（日常点检/定期检查）保持原「计划日期 + 宽限期」规则
       const overdueDays = {
-        daily_check: 1, level1: 7, level2: 7, lubrication: 7, periodic_inspection: 7, training: 7,
+        daily_check: 1, level1: 7, level2: 7, lubrication: 7, periodic_inspection: 7,
       };
       const grace = overdueDays[plan.projectType] || 7;
       const p = new Date(plan.planDate); p.setDate(p.getDate() + grace);
@@ -473,6 +472,36 @@ function generateDevicePlanAtMonth(device, projectType, year, month) {
   const plan = generatePlanForDevice(device, projectType, date, { ignoreEnabled: true });
   if (!plan) return { created: false, skipped: true, reason: '未配置模板' };
   return { created: true, plan };
+}
+
+// 保养计划批量取消：按设备+月份作废「待执行」保养单（进行中/已归档/已超期跳过）
+// opts: { deviceCodes:[], projectType, year, months:[], reason? }
+function voidDevicePlansAtMonths(opts = {}) {
+  const deviceCodes = Array.isArray(opts.deviceCodes) ? opts.deviceCodes : [];
+  const projectType = opts.projectType;
+  const year = parseInt(opts.year) || new Date().getFullYear();
+  const months = (Array.isArray(opts.months) ? opts.months : []).map(m => parseInt(m)).filter(m => m >= 1 && m <= 12);
+  const reason = opts.reason || '批量取消排期';
+  const codeSet = new Set(deviceCodes);
+  const voided = [];
+  const skipped = [];
+  if (!projectType || !codeSet.size || !months.length) return { voided, skipped };
+  generatedPlans.forEach(p => {
+    if (p.voided) return;
+    if (p.projectType !== projectType) return;
+    if (p.year !== year) return;
+    if (!codeSet.has(p.deviceCode)) return;
+    if (!months.includes(p.month)) return;
+    const st = deriveStatus(p);
+    if (st !== '待执行') {
+      skipped.push({ deviceCode: p.deviceCode, month: p.month, planId: p.id, reason: st });
+      return;
+    }
+    p.voided = true;
+    p.voidLog = { reason, date: fmtDate(new Date()) };
+    voided.push({ deviceCode: p.deviceCode, month: p.month, planId: p.id });
+  });
+  return { voided, skipped };
 }
 
 // 保养计划级别自动解析（§5.3(3) V1.2 定稿）：配 04 二级保养标准 → level2；否则配 03 → level1；两者均未配 → null（不参与）
@@ -898,49 +927,6 @@ function reschedulePlan(planId, newDate, payload) {
   return plan;
 }
 
-// ===================== 培训活动（§5.3(5) 按活动粒度） =====================
-function createTrainingActivity(data) {
-  // { title, contentId(fileCode 01 安全操作规程), deviceCodes:[], participants:[personnelId], cycleMonth }
-  const activity = {
-    id: genId('V2-training'),
-    title: data.title || '设备安全操作规程培训',
-    sourceTemplate: data.contentId || '01',   // V1.17：培训内容固定复用 01 安全操作规程
-    deviceCodes: data.deviceCodes || [],
-    participants: data.participants || [],          // 参训名单
-    trainingDate: data.trainingDate || fmtDate(new Date()),
-    year: parseInt((data.trainingDate || fmtDate(new Date())).substring(0, 4)),
-    month: parseInt((data.trainingDate || fmtDate(new Date())).substring(5, 7)),
-    status: '进行中', version: 1,
-    steps: buildSteps('training', data.trainingDate || fmtDate(new Date())),
-    content: null,   // 复用 07/01 模板内容
-  };
-  // 培训内容按小类解析（data.typeCode ?? 首台设备小类）；未配置则 content 为空（不报错）
-  const dev0 = devices.find(d => d.code === ((data.deviceCodes || [])[0] || ''));
-  const typeCode = data.typeCode || (dev0 && dev0.typeCode) || '000000';
-  activity.typeCode = typeCode;
-  const tpl = mc.resolveTemplate(typeCode, data.contentId || '01');
-  if (tpl.content) activity.content = tpl.content;
-  trainingRecords.push(activity);
-  return activity;
-}
-
-function advanceTraining(activityId, payload) {
-  const act = trainingRecords.find(a => a.id === activityId);
-  if (!act) throw new Error('培训活动不存在');
-  const current = act.steps.find(s => s.status !== 'done');
-  if (!current) throw new Error('培训已完成');
-  const user = auth.getPersonnelById(payload.personnelId);
-  const perm = canExecuteStep({ deviceCode: act.deviceCodes[0] || '16150201010001' }, current, payload.personnelId);
-  if (!perm.allowed && !(user && user.roleId === 'admin')) throw new Error('403:' + perm.note);
-  current.signatures.push(signatureSnapshot(user, {}));
-  current.status = 'done';
-  current.date = fmtDate(new Date());
-  if (payload.participants) act.participants = payload.participants;
-  act.version += 1;
-  if (act.steps.every(s => s.status === 'done')) act.status = '已归档';
-  return act;
-}
-
 // ===================== 台时记录（§5.9(3)） =====================
 // 点检日由点检单班后顺势录；非点检日由班组长/操作员补录
 function upsertKpi(deviceCode, dateStr, data) {
@@ -1301,12 +1287,11 @@ function initDeviceMaintenance(device, opts) {
 }
 
 module.exports = {
-  generatedPlans, trainingRecords, kpiRecords, ratedHours, rectifications,
-  deriveStatus, refreshStatuses, generatePlanForDevice, generateDevicePlanAtMonth, resolveMaintenanceLevel, planGrid,
+  generatedPlans, kpiRecords, ratedHours, rectifications,
+  deriveStatus, refreshStatuses, generatePlanForDevice, generateDevicePlanAtMonth, voidDevicePlansAtMonths, resolveMaintenanceLevel, planGrid,
   generateDailyChecksForDate, generatePeriodicForMonth,
   generateAll, advanceStep, reschedulePlan,
   createRepairOrder, closeInspectionAbnormal, freezeDeviceInstances,
-  createTrainingActivity, advanceTraining,
   upsertKpi, setRatedHours, dailyCheckReport, kpiDashboard, dashboardOverview,
   enumerateDays,
   closeRectification, markOverdueRectifications,

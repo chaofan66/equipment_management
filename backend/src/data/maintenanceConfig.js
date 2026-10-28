@@ -78,15 +78,6 @@ const PROJECT_TYPES = {
       { seq: 5, name: '归档',         action: '归档', role: 'archiver' },
     ],
   },
-  training: {
-    // V1.17：安全操作规程(01) 即培训内容，培训活动直接复用 01 模板
-    name: '设备培训', fileCode: '01', allowMulti: false,
-    steps: [
-      { seq: 1, name: '提交',         action: '提交', role: 'operator' },
-      { seq: 2, name: '确认',         action: '确认', role: 'opSupervisor' },
-      { seq: 3, name: '归档',         action: '归档', role: 'archiver' },
-    ],
-  },
   repair: {
     // V1.38：维修工单 6 步流程（报修(自动完成)→指派含安全审核→接单施工准备→完工提交→完工确认→完工审核自动归档）
     // 由 V1.37 8 步精简：安全审核并入指派（同为维保主管，指派即审批放行）；归档并入完工审核（通过即自动归档，去 archiver 步）
@@ -107,11 +98,11 @@ const PROJECT_TYPES = {
 // 键 = 台账设备.assetCategory（A/B/CT/C1/C2），直读台账，无 typeCode→资产分类映射层。
 // 单位: level1/level2 次数每年（仅历史参考，V1.1 改由保养计划用户选月）；periodic 每月/每季/0；training 每月/0；daily 每天
 const ASSET_CLASS_FREQUENCIES = {
-  'A':  { level1: 2, level2: 2, periodic_inspection: 'month',   training: 'month', daily_check: 'daily' },  // 大型/特种桥吊（起重 A 类）
-  'B':  { level1: 2, level2: 1, periodic_inspection: 'quarter', training: 'month', daily_check: 'daily' },  // 标准桥吊等（B 类）
-  'CT': { level1: 1, level2: 0, periodic_inspection: 0,         training: 'month', daily_check: 'daily' },  // 焊切/动能设备
-  'C1': { level1: 1, level2: 0, periodic_inspection: 0,         training: 'month', daily_check: 'daily' },  // 辅助设备（低维保）
-  'C2': { level1: 0, level2: 0, periodic_inspection: 0,         training: 0,       daily_check: 0 },          // 不纳入维保
+  'A':  { level1: 2, level2: 2, periodic_inspection: 'month',   daily_check: 'daily' },  // 大型/特种桥吊（起重 A 类）
+  'B':  { level1: 2, level2: 1, periodic_inspection: 'quarter', daily_check: 'daily' },  // 标准桥吊等（B 类）
+  'CT': { level1: 1, level2: 0, periodic_inspection: 0,         daily_check: 'daily' },  // 焊切/动能设备
+  'C1': { level1: 1, level2: 0, periodic_inspection: 0,         daily_check: 'daily' },  // 辅助设备（低维保）
+  'C2': { level1: 0, level2: 0, periodic_inspection: 0,         daily_check: 0 },          // 不纳入维保
   'DEFAULT': 'B',   // 全局默认资产分类（台账 assetCategory 缺省 B，见 import-devices.js）
 };
 
@@ -210,6 +201,36 @@ function persistTemplateOverrides() {
   try { fs.writeFileSync(templateStorePath, JSON.stringify(standardTemplates, null, 2)); }
   catch (e) { console.error('保存模板失败:', e.message); }
 }
+
+// ===================== 标准文件全局设置（全年执行） =====================
+// 开启后：已上传标准的小类模块不再按月反复「添加月份」；解析时当月无记录则回退最新已配置标准，
+// 各月初对应维保项目自动按该标准执行。
+const settingsStorePath = path.join(__dirname, '..', '..', '..', 'standardFileSettings.json');
+const standardFileSettings = { yearRoundExecution: false };
+function loadStandardFileSettings() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(settingsStorePath, 'utf8'));
+    if (typeof saved.yearRoundExecution === 'boolean') {
+      standardFileSettings.yearRoundExecution = saved.yearRoundExecution;
+    }
+  } catch (_) { /* 首次无文件 */ }
+}
+function persistStandardFileSettings() {
+  try { fs.writeFileSync(settingsStorePath, JSON.stringify(standardFileSettings, null, 2)); }
+  catch (e) { console.error('保存标准文件设置失败:', e.message); }
+}
+function isYearRoundExecution() { return !!standardFileSettings.yearRoundExecution; }
+function getStandardFileSettings() {
+  return { yearRoundExecution: isYearRoundExecution() };
+}
+function setStandardFileSettings(patch) {
+  if (patch && typeof patch.yearRoundExecution === 'boolean') {
+    standardFileSettings.yearRoundExecution = patch.yearRoundExecution;
+  }
+  persistStandardFileSettings();
+  return getStandardFileSettings();
+}
+loadStandardFileSettings();
 // boot 补名：代码默认/持久化记录缺 name 时按 DEFAULT_MODULE_NAMES 填充（V1.57：逐条 records 记录）
 function ensureModuleNames() {
   Object.values(standardTemplates).forEach(files => {
@@ -250,12 +271,14 @@ function migrate02ToSingleSlot(tpl) {
 // 模板记录是否含内容（内容字段在记录顶层：items/points/categories/safetyProcedure/rawRows）
 function hasTemplateContent(tpl) {
   if (!tpl) return false;
-  if (tpl.items || tpl.points || tpl.categories || tpl.safetyProcedure || tpl.rawRows) return true;
+  if (tpl.items || tpl.points || tpl.categories || tpl.safetyProcedure || tpl.rawRows || tpl.questionBank) return true;
   return false;
 }
 // 模块项数（不同结构取对应数组长度）
 function countItems(tpl) {
   if (!tpl) return 0;
+  const qb = tpl.questionBank && tpl.questionBank.counts;
+  if (qb) return (qb.single || 0) + (qb.multi || 0) + (qb.fill || 0) + (qb.essay || 0);
   return (tpl.items?.length || tpl.points?.length || tpl.categories?.length || tpl.safetyProcedure?.sections?.length || (tpl.rawRows && tpl.rawRows.length) || 0);
 }
 
@@ -299,12 +322,28 @@ function moduleHasAnyRecord(typeCode, fileCode) {
   if (!b) return false;
   return Object.keys(b.records).some(m => m !== NON_MONTH_KEY && hasTemplateContent(b.records[m]));
 }
+// 最新「有内容」月份键（全年执行底稿定位）
+function latestConfiguredMonthKey(typeCode, fileCode) {
+  const b = templateBucket(typeCode, fileCode);
+  if (!b) return null;
+  const monthKeys = Object.keys(b.records).filter(k => k !== NON_MONTH_KEY).sort();
+  for (let i = monthKeys.length - 1; i >= 0; i--) {
+    if (hasTemplateContent(b.records[monthKeys[i]])) return monthKeys[i];
+  }
+  return null;
+}
 // 月份/记录是否锁定（02-06）：该月已生成计划、过去月 → 锁定；当前月 → 该模块已配置过才锁定；01 豁免
 // V1.57b：当前月不再恒锁——该模块从未配置过任何月份文件时本月可选（首次配置当月）
+// 全年执行：允许改「最新已配置」那一条（全年底稿，可上传替换/微调）；其余月份只读；已排期仍锁
 function isMonthLocked(typeCode, fileCode, month, plansExist) {
   if (!PERIOD_LOCK_FILE_CODES.includes(fileCode)) return false; // 01 豁免
   if (plansExist) return true; // 该月已生成计划 → 锁定（即使未来月也已排期）
   if (!month || month === NON_MONTH_KEY || !/^\d{4}-\d{2}$/.test(month)) return false;
+  if (isYearRoundExecution()) {
+    const latestKey = latestConfiguredMonthKey(typeCode, fileCode);
+    if (!latestKey || month === latestKey) return false; // 底稿可改；尚无配置也可写
+    return true; // 非最新月只读
+  }
   if (month < currentMonth()) return true; // 过去月已执行
   if (month === currentMonth()) return moduleHasAnyRecord(typeCode, fileCode); // 本月：从未配置 → 可选
   return false;
@@ -325,12 +364,16 @@ function getTemplateRecord(typeCode, fileCode, month) {
   return b.records[NON_MONTH_KEY] || null;
 }
 // 最新一条月度记录（未指定月份兜底；01 取 _）
+// 优先返回「有内容」的最新月份；全年执行回退依赖此语义
 function latestTemplateRecord(typeCode, fileCode) {
   const b = templateBucket(typeCode, fileCode);
   if (!b) return null;
-  const monthKeys = Object.keys(b.records).filter(k => k !== NON_MONTH_KEY);
+  const monthKeys = Object.keys(b.records).filter(k => k !== NON_MONTH_KEY).sort();
   if (monthKeys.length) {
-    monthKeys.sort();
+    for (let i = monthKeys.length - 1; i >= 0; i--) {
+      const rec = b.records[monthKeys[i]];
+      if (hasTemplateContent(rec)) return rec;
+    }
     return b.records[monthKeys[monthKeys.length - 1]];
   }
   return b.records[NON_MONTH_KEY] || null;
@@ -359,7 +402,9 @@ function copyTemplateRecord(typeCode, fileCode, fromM, toM) {
   return setTemplateRecord(typeCode, fileCode, toM, { ...rest, version: 1 });
 }
 // 某年是否有该模板内容记录（生成门禁：planGrid/级别解析按年判断）
+// 全年执行开启时：任意月份已配置即视为全年可用
 function hasRecordInYear(typeCode, fileCode, year) {
+  if (isYearRoundExecution() && moduleHasAnyRecord(typeCode, fileCode)) return true;
   const b = templateBucket(typeCode, fileCode);
   if (!b) return false;
   const prefix = String(year) + '-';
@@ -520,14 +565,31 @@ function resolveTemplate(typeCode, fileCode, month) {
   typeCode = (typeCode || '').padStart(6, '0');
   // V1.57：按月取记录——month 明确提供 → 精确该月（缺 → null，不回退，生成/报表按目标月判定）；
   //   month 缺省 → 最新一条（01 '_' 单记录；聚合/级别解析兜底）
+  // 全年执行：指定月无记录时回退最新已配置标准，避免每月反复上传
   let tpl;
+  let usedFallback = false;
   if (month && month !== NON_MONTH_KEY) {
     tpl = getTemplateRecord(typeCode, fileCode, month);
+    if ((!tpl || !hasTemplateContent(tpl)) && isYearRoundExecution()) {
+      const latest = latestTemplateRecord(typeCode, fileCode);
+      if (latest && hasTemplateContent(latest)) {
+        tpl = latest;
+        usedFallback = true;
+      }
+    }
   } else {
     tpl = latestTemplateRecord(typeCode, fileCode);
   }
-  if (tpl && tpl.status === 'active' && hasTemplateContent(tpl)) {
-    return { content: tpl, source: '自定义', sourceLevel: '小类', sourceKey: typeCode, templateId: typeCode + fileCode, templateVersion: tpl.version };
+  if (tpl && (tpl.status === 'active' || usedFallback) && hasTemplateContent(tpl)) {
+    return {
+      content: tpl,
+      source: usedFallback ? '全年执行(回退最新)' : '自定义',
+      sourceLevel: '小类',
+      sourceKey: typeCode,
+      templateId: typeCode + fileCode,
+      templateVersion: tpl.version,
+      yearRoundFallback: usedFallback,
+    };
   }
   return { content: null, source: '未配置', sourceLevel: null, sourceKey: null, templateId: null, templateVersion: 0 };
 }
@@ -537,6 +599,70 @@ function resolveTemplate(typeCode, fileCode, month) {
 // 可选第二个 sheet「附加」（列：类型 | 内容），供 04/05 填安全注意事项、06 填处理意见。
 // V1.27 列名不设死规则：语义列探测「精确 → 包含 → 按列序兜底」，任意 ≥2 数据列的 Excel 均可上传。
 // parseTemplateExcel(fileCode, rows, extraRows) 解析 → 模板内容对象；0 行抛错。
+
+// 01 安全操作规程。业务文件是「序号 | 条款」：1/2/3 为章节标题，1.1、5.1、5.1.1 为条款（中间层如「5.1 操作前」保留在条款里）。
+// 仍兼容旧表「章节 | 条款」（章节名变化即新章节）。
+function parseSafetyProcedure(header, dataRows) {
+  const get = (r, i) => (i == null || i < 0 ? '' : String(r[i] == null ? '' : r[i]).trim());
+  const findHeader = (names) => {
+    for (const n of names) {
+      const i = header.findIndex(h => h === n);
+      if (i >= 0) return i;
+    }
+    return header.findIndex(h => h && names.some(n => h.includes(n)));
+  };
+  const codeIdx = findHeader(['序号', '编号']);
+  const textIdx = findHeader(['条款', '内容']);
+  const chapterIdx = findHeader(['章节']);
+  const numbered = codeIdx >= 0 && dataRows.some(r => /^\d+(?:\.\d+)*$/.test(get(r, codeIdx)));
+  if (numbered) {
+    const bodyIdx = textIdx >= 0 && textIdx !== codeIdx ? textIdx : chapterIdx;
+    if (bodyIdx < 0 || bodyIdx === codeIdx) throw new Error('Excel 未识别到「条款」列，请确认表头为「序号 / 条款」');
+    const items = [];
+    dataRows.forEach(r => {
+      const code = get(r, codeIdx);
+      const text = get(r, bodyIdx);
+      if (!/^\d+(?:\.\d+)*$/.test(code) || !text) return;
+      items.push({ code, text, depth: code.split('.').length });
+    });
+    if (!items.length) throw new Error('未解析到安全操作规程条款，请确认为「序号 / 条款」');
+    const sections = [];
+    let cur = null;
+    items.forEach(it => {
+      if (it.depth === 1) {
+        cur = { seq: Number(it.code) || sections.length + 1, title: it.text, clauses: [] };
+        sections.push(cur);
+        return;
+      }
+      if (!cur) {
+        cur = { seq: sections.length + 1, title: '规程', clauses: [] };
+        sections.push(cur);
+      }
+      cur.clauses.push(it.code + ' ' + it.text);
+    });
+    sections.forEach((s, i) => { if (!s.seq) s.seq = i + 1; });
+    return { sections, labels: { section: '章节', clause: header[bodyIdx] || '条款' } };
+  }
+  const ci = chapterIdx >= 0 ? chapterIdx : (textIdx >= 0 ? textIdx : 0);
+  const cj = textIdx >= 0 && textIdx !== ci ? textIdx : -1;
+  if (chapterIdx < 0 && textIdx < 0) throw new Error('Excel 未识别到「序号 / 条款」或「章节 / 条款」，请确认表头');
+  const sections = [];
+  let cur = null;
+  dataRows.forEach(r => {
+    const title = get(r, ci);
+    const clause = get(r, cj);
+    if (!title && !clause) return;
+    if (/编制$/.test(title) && !clause) return;
+    if (!cur || (title && title !== cur.title)) {
+      cur = { title: title || ('章节' + (sections.length + 1)), clauses: [] };
+      sections.push(cur);
+    }
+    if (clause) cur.clauses.push(clause);
+  });
+  sections.forEach((s, i) => { s.seq = i + 1; });
+  if (!sections.length) throw new Error('未解析到安全操作规程内容');
+  return { sections, labels: { section: header[ci] || '章节', clause: cj < 0 ? '条款' : (header[cj] || '条款') } };
+}
 
 function parseTemplateExcel(fileCode, rows, extraRows) {
   if (!rows || rows.length === 0) throw new Error('Excel 无数据');
@@ -566,22 +692,9 @@ function parseTemplateExcel(fileCode, rows, extraRows) {
   const tpl = { status: 'active' };
 
   if (fileCode === '01') {
-    const ci = findCol(['章节']) ?? fallbackCol();
-    const cj = findCol(['条款']);
-    if (ci == null) throw new Error('Excel 未识别到「章节」列，请确认首行为表头（如：序号/章节/条款）');
-    const sections = [];
-    let cur = null;
-    dataRows.forEach(r => {
-      const title = get(r, ci), clause = get(r, cj);
-      if (!title && !clause) return;
-      // 新章节条件：非空标题 且 与当前不同（空标题/重复标题 → 归入当前章节）
-      if (!cur || (title && title !== cur.title)) { cur = { title: title || ('章节' + (sections.length + 1)), clauses: [] }; sections.push(cur); }
-      if (clause) cur.clauses.push(clause);
-    });
-    sections.forEach((s, i) => { s.seq = i + 1; });
-    tpl.safetyProcedure = { sections };
-    // V1.19 表头快照：章节/条款真实列名（前端展示与上传 Excel 表头一致，无则回退默认）
-    tpl.labels = { section: header[ci], clause: cj == null ? null : header[cj] };
+    const safety = parseSafetyProcedure(header, dataRows);
+    tpl.safetyProcedure = { sections: safety.sections };
+    tpl.labels = safety.labels;
   } else if (fileCode === '02' || fileCode === '03' || fileCode === '04' || fileCode === '05') {
     // V1.27 语义池共享（02-05 不区分文件类型）：item 列=项目/类别/部位 任一；内容列=含「内容」任一列（工序内容/检查保养内容/检查内容/内容…）
     const ci = findCol(['类别', '项目', '部位']) ?? fallbackCol();
@@ -880,12 +993,13 @@ module.exports = {
   PERIOD_LOCK_FILE_CODES, NON_MONTH_KEY, serverTodayStr,
   // V1.57：按月模型
   monthKey, monthOf, currentMonth, monthBounds, monthStatus,
-  isMonthLocked, assertMonthNotLocked, moduleHasAnyRecord,
+  isMonthLocked, assertMonthNotLocked, moduleHasAnyRecord, latestConfiguredMonthKey,
   getTemplateRecord, latestTemplateRecord, setTemplateRecord, copyTemplateRecord,
   listTemplateRecords, deleteTemplateRecord, hasRecordInYear,
   hasTemplateContent, isTemplateEffective,
   persistTemplateOverrides, deleteTemplate, parseTemplateExcel,
   listTemplateModules, createTemplateModule, renameTemplateModule,
+  standardFileSettings, getStandardFileSettings, setStandardFileSettings, isYearRoundExecution,
   getDeviceByCode, resolveTemplate, resolveAssetClass, resolveDeviceProjects,
   resolveRoleBindings, resolveStepPermissions, getDeviceConfig,
   isPilotDeviceCode, isPilotDevice, isHoliday, nextWorkday, isCheckDay, computeSchedule,

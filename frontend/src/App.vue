@@ -18,7 +18,8 @@ const tabs = [
   {
     key: 'maintenance', label: '维保管理', route: '/maintenance',
     perms: ['mt.main.view', 'mt.dailycheck.view', 'mt.plans.view', 'mt.level1.view', 'mt.level2.view',
-      'mt.inspection.view', 'mt.repair.view', 'mt.training.view', 'mt.stdconfig.view']
+      'mt.inspection.view', 'mt.repair.view', 'mt.stdconfig.view',
+      'exam.config.view', 'exam.practice', 'course.config.view', 'course.view']
   },
   { key: 'approval', label: '流转审批', route: '/approval', perms: ['approval.view'] },
   {

@@ -81,17 +81,33 @@ const routes = [
         meta: { title: '维修工单' }
       },
       {
-        path: 'training',
-        name: 'maintenance-training',
-        component: () => import('@/views/maintenance/TrainingView.vue'),
-        meta: { title: '设备培训' }
-      },
-      {
         path: 'file-config',
         name: 'maintenance-file-config',
         component: () => import('@/views/maintenance/FileConfigView.vue'),
         meta: { title: '标准文件配置' }
       },
+      {
+        path: 'training',
+        component: () => import('@/views/maintenance/TrainingHubView.vue'),
+        redirect: '/maintenance/training/exam',
+        meta: { title: '设备培训' },
+        children: [
+          {
+            path: 'exam',
+            name: 'maintenance-exam',
+            component: () => import('@/views/maintenance/ExamView.vue'),
+            meta: { title: '考试' }
+          },
+          {
+            path: 'course',
+            name: 'maintenance-course',
+            component: () => import('@/views/maintenance/CourseView.vue'),
+            meta: { title: '课程' }
+          }
+        ]
+      },
+      { path: 'exam', redirect: '/maintenance/training/exam' },
+      { path: 'course', redirect: '/maintenance/training/course' },
       // V1.46 设备分配 → V1.49 拆「车间分配/维保分配」→ V1.50 合并「设备分配」：两路由保留（页内子 tab 目标），标题统一「设备分配」
       {
         path: 'assign',

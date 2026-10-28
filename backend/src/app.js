@@ -15,6 +15,7 @@ const maintenanceV2Routes = require('./routes/maintenanceV2');
 const assignmentsRoutes = require('./routes/assignments');   // V1.46 设备分配
 const approvalRoutes = require('./routes/approval');
 const configRoutes = require('./routes/config');
+const learningRoutes = require('./routes/learning');
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.use('/api/maintenance', maintenanceV2Routes);   // V2 维保业务逻辑（�
 app.use('/api/maintenance', assignmentsRoutes);     // V1.46 设备分配
 app.use('/api/approval', approvalRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api', learningRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
