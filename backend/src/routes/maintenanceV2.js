@@ -76,17 +76,17 @@ router.get('/templates/tree', (req, res) => {
   res.json({ success: true, data: tree });
 });
 
-// 标准文件全局设置：GET/PUT /maintenance/templates/settings
-//   { yearRoundExecution: boolean } —— 开启全年执行后，已上传标准的模块禁用「添加月份」，
-//   解析当月无记录时回退最新已配置标准，月初自动按该标准执行。
-// ⚠️ 静态段 settings 必须定义在参数路由 :typeCode/:fileCode 之前
-router.get('/templates/settings', (req, res) => {
-  res.json({ success: true, data: mc.getStandardFileSettings() });
-});
-router.put('/templates/settings', (req, res) => {
+// 标准文件同步：POST /maintenance/templates/sync
+//   body: { mode: 'year'|'nextYear', dryRun?: boolean, typeCode?: string }
+//   默认不传 typeCode → 扫描全部小类，已配置源标准的自动补齐；未配置的跳过
+//   year=同步全年（源月之后～今年12月空月）；nextYear=今年12月→明年1–12空月
+//   默认不覆盖已有内容月；取标准仍按月精确匹配
+// ⚠️ 静态段 sync 必须定义在参数路由 :typeCode/:fileCode 之前
+router.post('/templates/sync', (req, res) => {
   try {
-    const data = mc.setStandardFileSettings(req.body || {});
-    Object.keys(mc.configCache).forEach(k => delete mc.configCache[k]);
+    const { typeCode, mode, dryRun } = req.body || {};
+    const data = mc.syncTemplateMonths(typeCode, mode, !!dryRun);
+    if (!dryRun) Object.keys(mc.configCache).forEach(k => delete mc.configCache[k]);
     res.json({ success: true, data });
   } catch (e) {
     res.status(400).json({ success: false, error: e.message });
@@ -111,7 +111,6 @@ router.get('/templates/modules', (req, res) => {
     success: true,
     data: modules,
     today: mc.serverTodayStr(),
-    yearRoundExecution: mc.isYearRoundExecution(),
   });
 });
 
@@ -132,10 +131,6 @@ router.post('/templates/:typeCode/:fileCode/copy', (req, res) => {
     const { typeCode, fileCode } = req.params;
     if (!/^\d{6}$/.test(typeCode)) return res.status(400).json({ success: false, error: 'typeCode 须为 6 位小类编码' });
     if (fileCode === '01') return res.status(400).json({ success: false, error: '01 安全操作规程不参与按月复制' });
-    // 全年执行：已上传过标准的模块禁止再「添加月份」（复制）
-    if (mc.isYearRoundExecution() && mc.moduleHasAnyRecord(typeCode, fileCode)) {
-      return res.status(403).json({ success: false, error: '已开启全年执行：该模块已上传标准文件，无需再添加月份' });
-    }
     let { fromMonth, toMonth } = req.body || {};
     if (!/^\d{4}-\d{2}$/.test(toMonth || '')) return res.status(400).json({ success: false, error: '缺少目标月份 toMonth（YYYY-MM）' });
     if (!/^\d{4}-\d{2}$/.test(fromMonth || '')) {
@@ -242,11 +237,6 @@ router.post('/templates/import', uploadMemory, (req, res) => {
     // 锁定校验在 XLSX.read 解析之前拦截，避免解析落盘后才 403 无法回滚
     if (fileCode !== '01') {
       if (!/^\d{4}-\d{2}$/.test(month || '')) return res.status(400).json({ success: false, error: '缺少执行月份（YYYY-MM）' });
-      // 全年执行：已有标准时禁止「添加新月份」上传；已有该月记录的「上传替换」仍允许
-      const existingMonth = mc.getTemplateRecord(typeCode, fileCode, month);
-      if (mc.isYearRoundExecution() && mc.moduleHasAnyRecord(typeCode, fileCode) && !(existingMonth && mc.hasTemplateContent(existingMonth))) {
-        return res.status(403).json({ success: false, error: '已开启全年执行：该模块已上传标准文件，无需再添加月份；如需更新请用「上传替换」' });
-      }
       mc.assertMonthNotLocked(typeCode, fileCode, month, monthHasPlans(typeCode, fileCode, month));
     }
     const wb = XLSX.read(req.file.buffer, { type: 'buffer' });

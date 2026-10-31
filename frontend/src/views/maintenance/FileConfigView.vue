@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { useDictStore } from '@/stores/dict'
 import { useToast } from '@/composables/useToast'
 import { useModal } from '@/composables/useModal'
-import { fetchTemplate, importTemplateExcel, fetchTemplateModules, deleteTemplate, copyTemplateRecord, fetchTemplateSettings, saveTemplateSettings } from '@/api/maintenance'
+import { fetchTemplate, importTemplateExcel, fetchTemplateModules, deleteTemplate, copyTemplateRecord, syncTemplateMonths } from '@/api/maintenance'
 import TemplateEditDrawer from '@/components/maintenance/TemplateEditDrawer.vue'
 
 const store = useDictStore()
@@ -15,11 +15,9 @@ const modal = useModal()
 // ===================== 标准文件配置（§5.7 V1.18 固定 6 类模板） =====================
 // 模板主键=(6位小类, fileCode)；固定 6 类，不可新增/删除/改编号：
 //   01 安全操作规程 / 02 点检保养标准（仅班前模板上传；班后为固定表单，不设上传）/ 03 一级保养标准 / 04 二级保养标准 / 05 设备润滑标准 / 06 定期检查标准
-// V1.57：02-06 按月一份标准（standardTemplates[tc][fc].records = { 'YYYY-MM': {...} }），执行期=所选自然月整月（无起止日期选择）；
-//   过去月/已生成计划 → 该月记录锁定不可改（后端 today/locked 权威，前端禁用本地日期比较）；可添加未来月（复制上一年同月为基础再改，或直接上传新文件）。
-//   V1.57b：本月不再恒锁——该模块从未配置过任何月份文件 → 本月可选（首次配置当月）；已配置过 → 本月锁定，只能添加未来月。
+// V1.57：02-06 按月一份标准；取标准严格按计划月，缺月即未配置（不做查询回退）。
+//   「同步全年」：以今年已有源月复制空月至今年 12 月；「同步明年」：以今年 12 月复制到明年 1–12（均不覆盖已有）。
 //   01 安全操作规程保持单条（无月份、无锁定、无执行期）。
-// 全年执行：开启后已上传标准的模块禁用「添加月份」；解析当月无记录时回退最新已配置标准，月初自动执行。
 const templateMajor = ref('')
 const templateMid = ref('')
 const templateSearch = ref('')
@@ -27,12 +25,33 @@ const selectedTypeCode = ref('')
 const selectedTypeName = ref('')
 const templateModules = ref([])   // 固定 6 行：{code,name,configured,version,records[],...}
 const today = ref('')             // 服务端日期 YYYY-MM-DD（月份状态/锁定的权威依据）
-const yearRoundExecution = ref(false)
-const settingsDialogVisible = ref(false)
-const settingsSaving = ref(false)
-const settingsDraft = ref(false)
+const syncing = ref(false)
+const syncDialogVisible = ref(false)
+const syncConfirming = ref(false)
+const syncPreview = ref(null)     // 后端 dryRun 结果
+const syncPage = ref(1)
+const syncPageSize = 20
+/** 新配置了按月标准后，在「同步全年」旁提醒可同步 */
+const showSyncYearHint = ref(false)
 const editTarget = ref(null)      // 内容微调目标 { typeCode, fileCode, content, source, configured, month }
 const editVisible = ref(false)
+
+const SYNC_YEAR_HINT_KEY = 'cims_sync_year_hint'
+
+function markSyncYearHint(fileCode) {
+  // 01 规程不参与按月同步
+  if (fileCode && fileCode !== '01') {
+    showSyncYearHint.value = true
+    try { sessionStorage.setItem(SYNC_YEAR_HINT_KEY, '1') } catch (_) {}
+  }
+}
+function clearSyncYearHint() {
+  showSyncYearHint.value = false
+  try { sessionStorage.removeItem(SYNC_YEAR_HINT_KEY) } catch (_) {}
+}
+function restoreSyncYearHint() {
+  try { showSyncYearHint.value = sessionStorage.getItem(SYNC_YEAR_HINT_KEY) === '1' } catch (_) {}
+}
 
 // V1.57 上传替换弹框（某月记录：目标月固定，执行期=整月，无日期区间）
 const uploadDialogVisible = ref(false)
@@ -96,7 +115,6 @@ function prevYearSameMonth(m) { return (parseInt(m.substring(0, 4), 10) - 1) + m
 function recLocked(rec) { return !!(rec && rec.locked) }
 function recLockTip(rec) {
   if (!rec || !rec.locked) return ''
-  if (yearRoundExecution.value) return '全年执行：请在最新标准记录上使用「上传替换 / 内容微调」'
   if (rec.status === '执行中') return '本月执行中，不可修改'
   if (rec.status === '已结束') return '该月已结束，不可修改'
   return '该月已生成维保计划，不可修改'
@@ -120,71 +138,115 @@ const addDisabledSet = computed(() => new Set((addModule.value?.records || []).f
 // V1.57b：该模块是否已配置过任何月份文件（从未配置 → 本月可选，可首次配置当月）
 const moduleHasRecords = computed(() => (addModule.value?.records || []).some(r => r.month && r.configured))
 
-/** 模块是否已有任意月份配置 */
-function moduleConfigured(m) {
-  return !!(m && (m.configured || (m.records || []).some(r => r.month && r.configured)))
-}
-/** 全年执行开启且该模块已有配置 → 禁用「添加月份」 */
-function addMonthDisabled(m) {
-  if (!yearRoundExecution.value) return false
-  if (!m || m.code === '01') return true
-  return moduleConfigured(m)
-}
-function addMonthDisabledTip(m) {
-  if (!yearRoundExecution.value) return ''
-  if (addMonthDisabled(m)) return '已开启全年执行：该模块已上传标准文件，每月自动沿用，无需再添加月份'
-  return ''
-}
-/** 全年执行下未配置模块：直接上传（落到本月），不必走「添加月份」选月 */
-function openYearRoundFirstUpload(m) {
-  if (!m || m.code === '01') return
-  if (!currentMonth.value) { toast.error('无法获取当前月份，请刷新后重试'); return }
-  uploadModule.value = m
-  uploadMonth.value = currentMonth.value
-  uploadFile.value = null
-  uploadDialogVisible.value = true
-}
 function onHeaderAction(m) {
   if (m.code === '01') return
-  if (yearRoundExecution.value) {
-    if (moduleConfigured(m)) {
-      toast.error(addMonthDisabledTip(m) || '已开启全年执行，无法添加月份')
-      return
-    }
-    openYearRoundFirstUpload(m)
-    return
-  }
   openAddDialog(m)
 }
 
-async function loadTemplateSettings() {
+/** 从完整分类树取小类名（不受顶部筛选影响，保证同步弹框能显示名称） */
+function typeNameOf(typeCode) {
+  let found = ''
+  const walk = (node) => {
+    if (found || !node) return
+    Object.values(node).forEach(val => {
+      if (found) return
+      if (val?.children) walk(val.children)
+      else if (val?.code === typeCode) found = val.name || typeCode
+    })
+  }
+  walk(store.deviceTypeTree || {})
+  return found || typeCode
+}
+
+/** @returns {{ status: 'ok'|'missing', text: string }} */
+function moduleWriteCell(modules, fileCode, mode) {
+  const m = (modules || []).find(x => x.fileCode === fileCode)
+  const ready = !!(m?.hasSource || m?.hasDecember || m?.sourceMonth)
+  if (ready) return { status: 'ok', text: '可同步' }
+  if (mode === 'nextYear') return { status: 'missing', text: '12月没有记录，请配置再同步' }
+  return { status: 'missing', text: '没有记录，请配置再同步' }
+}
+
+/** 同步预览表格行（全年/明年同一套状态展示） */
+const syncTableRows = computed(() => {
+  const data = syncPreview.value
+  if (!data) return []
+  const items = data.scope === 'all' ? (data.items || []) : (data.typeCode ? [data] : [])
+  const mode = data.mode
+  return items
+    .filter(item => !!item.hasAnySource)
+    .map(item => ({
+      typeCode: item.typeCode,
+      typeName: typeNameOf(item.typeCode),
+      totalWouldWrite: item.totalWouldWrite,
+      allFiveReady: !!item.allFiveReady,
+      m02: moduleWriteCell(item.modules, '02', mode),
+      m03: moduleWriteCell(item.modules, '03', mode),
+      m04: moduleWriteCell(item.modules, '04', mode),
+      m05: moduleWriteCell(item.modules, '05', mode),
+      m06: moduleWriteCell(item.modules, '06', mode),
+    }))
+})
+
+/** 列表中每个小类都必须五标准齐套，且有可写入条数，才可点确定（全年/明年同一规则） */
+const syncAllRowsReady = computed(() =>
+  syncTableRows.value.length > 0 && syncTableRows.value.every(r => r.allFiveReady)
+)
+const syncCanConfirm = computed(() =>
+  syncAllRowsReady.value && (syncPreview.value?.totalWouldWrite || 0) > 0
+)
+
+const syncTablePageRows = computed(() => {
+  const start = (syncPage.value - 1) * syncPageSize
+  return syncTableRows.value.slice(start, start + syncPageSize)
+})
+
+async function runSync(mode) {
+  syncing.value = true
   try {
-    const res = await fetchTemplateSettings()
-    yearRoundExecution.value = !!res.data?.yearRoundExecution
-  } catch (_) {
-    yearRoundExecution.value = false
+    const preview = await syncTemplateMonths({ mode, dryRun: true })
+    const data = preview.data
+    if (!(data.typeCount || data.typeCode) && !data.totalWouldWrite) {
+      toast.info(mode === 'year' ? '没有已配置标准的小类可同步' : '没有今年 12 月已配置的小类，请先配置再同步明年')
+      return
+    }
+    // 即使暂不可写入，也打开弹框展示各模块是否配齐（绿标可同步 / 红字待配置）
+    syncPreview.value = data
+    syncPage.value = 1
+    syncDialogVisible.value = true
+  } catch (e) {
+    toast.error(e.response?.data?.error || e.message || '同步失败')
+  } finally {
+    syncing.value = false
   }
 }
-function openSettingsDialog() {
-  settingsDraft.value = yearRoundExecution.value
-  settingsDialogVisible.value = true
-}
-async function confirmSettings() {
-  settingsSaving.value = true
+
+async function confirmSyncDialog() {
+  const data = syncPreview.value
+  if (!data?.mode) return
+  if (!syncAllRowsReady.value) {
+    toast.info('须列表中每个小类的五个标准文件全部配齐后，才可确认同步')
+    return
+  }
+  if (!(data.totalWouldWrite > 0)) {
+    toast.info(data.mode === 'nextYear' ? '明年已全部同步，无需再同步' : '空月已齐，无需再同步')
+    return
+  }
+  if (!syncCanConfirm.value) return
+  syncConfirming.value = true
   try {
-    const res = await saveTemplateSettings({ yearRoundExecution: !!settingsDraft.value })
-    yearRoundExecution.value = !!res.data?.yearRoundExecution
-    settingsDialogVisible.value = false
-    toast.success(yearRoundExecution.value
-      ? '已开启全年执行：已上传标准的模块将每月自动沿用，无需反复添加月份'
-      : '已关闭全年执行：可继续按月添加标准文件')
+    const res = await syncTemplateMonths({ mode: data.mode, dryRun: false })
+    syncDialogVisible.value = false
+    if (data.mode === 'year') clearSyncYearHint()
+    const n = res.data.readyTypeCount ?? res.data.typeCount ?? syncTableRows.value.length
+    toast.success(`已同步 ${n} 个小类，写入 ${res.data.totalWritten} 条月份标准`)
     if (selectedTypeCode.value) {
       await selectTemplateLeaf({ typeCode: selectedTypeCode.value, name: selectedTypeName.value })
     }
   } catch (e) {
-    toast.error(e.response?.data?.error || e.message || '保存失败')
+    toast.error(e.response?.data?.error || e.message || '同步失败')
   } finally {
-    settingsSaving.value = false
+    syncConfirming.value = false
   }
 }
 
@@ -192,13 +254,11 @@ async function selectTemplateLeaf(leaf, retries = 2) {
   selectedTypeCode.value = leaf.typeCode
   selectedTypeName.value = leaf.name
   // V1.57：状态/today 由后端返回，落盘 standardTemplates.json（仓库根、nodemon watch 树外，不触发重启）
-  // → 短暂重试为防御性保障，避免「添加/删除/上传」后列表残留
   for (let i = 0; i <= retries; i++) {
     try {
       const res = await fetchTemplateModules(leaf.typeCode)
       templateModules.value = res.data
       today.value = res.today || ''
-      if (typeof res.yearRoundExecution === 'boolean') yearRoundExecution.value = res.yearRoundExecution
       return
     } catch (e) {
       if (i === retries) throw e
@@ -227,6 +287,7 @@ async function confirmUpload() {
     const res = await importTemplateExcel(selectedTypeCode.value, m.code, uploadFile.value, uploadMonth.value)
     toast.success(`「${m.name}」已导入：${res.data.name} v${res.data.version}，编码 ${res.data.stdCode}`)
     uploadDialogVisible.value = false
+    markSyncYearHint(m.code)
     await selectTemplateLeaf({ typeCode: selectedTypeCode.value, name: selectedTypeName.value })
   } catch (e) {
     const msg = e.response?.data?.error || e.message || '导入失败'
@@ -239,10 +300,6 @@ async function confirmUpload() {
 
 // ===================== 添加月份（02-06）：复制上一年同月 / 直接上传新文件 =====================
 function openAddDialog(m) {
-  if (addMonthDisabled(m)) {
-    toast.error(addMonthDisabledTip(m) || '已开启全年执行，无法添加月份')
-    return
-  }
   addModule.value = m
   // V1.57b：该模块从未配置过任何月份 → 默认目标=本月（首次配置当月）；已配置过 → 默认下月
   const neverCfg = !(m.records || []).some(r => r.month && r.configured)
@@ -278,6 +335,7 @@ async function confirmAdd() {
       const res = await copyTemplateRecord(selectedTypeCode.value, m.code, addSourceMonth.value, addTargetMonth.value)
       toast.success(`已从 ${res.data.fromMonth} 复制到 ${res.data.toMonth}（v${res.data.version}），可在此基础上修改`)
       addDialogVisible.value = false
+      markSyncYearHint(m.code)
       await selectTemplateLeaf({ typeCode: selectedTypeCode.value, name: selectedTypeName.value })
       // 复制后打开该月内容微调
       const rec = (templateModules.value.find(x => x.code === m.code)?.records || []).find(r => r.month === addTargetMonth.value)
@@ -287,6 +345,7 @@ async function confirmAdd() {
       const res = await importTemplateExcel(selectedTypeCode.value, m.code, addUploadFile.value, addTargetMonth.value)
       toast.success(`「${m.name}」已配置到 ${addTargetMonth.value}：v${res.data.version}`)
       addDialogVisible.value = false
+      markSyncYearHint(m.code)
       await selectTemplateLeaf({ typeCode: selectedTypeCode.value, name: selectedTypeName.value })
     }
   } catch (e) {
@@ -310,6 +369,7 @@ async function openContentEdit(m, rec) {
   editVisible.value = true
 }
 async function onTemplateSaved() {
+  markSyncYearHint(editTarget.value?.fileCode)
   // 重新加载模块清单，刷新配置状态/版本/锁定
   if (selectedTypeCode.value) await selectTemplateLeaf({ typeCode: selectedTypeCode.value, name: selectedTypeName.value })
 }
@@ -337,8 +397,8 @@ watch([templateMajor, templateMid], () => {
 })
 
 onMounted(async () => {
+  restoreSyncYearHint()
   await store.loadAll()
-  await loadTemplateSettings()
   // V1.53：横幅「修改」跳转带 typeCode 参数 → 自动选中该小类（V1.57 横幅已删，参数保留兜底）
   const qType = route.query.typeCode
   if (qType && templateLeaves.value.length) {
@@ -360,10 +420,32 @@ onMounted(async () => {
       </el-select>
       <el-input v-model="templateSearch" size="small" placeholder="搜索小类名称/编码" style="width:200px" clearable />
       <span class="text-xs text-[#909399]">{{ templateLeaves.length }} 个小类</span>
-      <el-button size="small" type="primary" @click="openSettingsDialog">设置标准文件</el-button>
-      <el-tag v-if="yearRoundExecution" size="small" type="success" effect="plain">全年执行已开启</el-tag>
+      <el-badge :is-dot="showSyncYearHint" :hidden="!showSyncYearHint" class="sync-year-badge">
+        <el-button
+          size="small"
+          type="primary"
+          :disabled="syncing"
+          :loading="syncing"
+          @click="runSync('year')"
+        >同步全年</el-button>
+      </el-badge>
+      <el-button
+        size="small"
+        :disabled="syncing"
+        :loading="syncing"
+        @click="runSync('nextYear')"
+      >同步明年</el-button>
+      <el-tag
+        v-if="showSyncYearHint"
+        type="warning"
+        size="small"
+        effect="light"
+        class="sync-year-hint"
+        closable
+        @close="clearSyncYearHint"
+      >有新标准，可进行全年同步</el-tag>
       <div class="flex-1" />
-      <span class="text-xs text-[#909399]">模板以 6 位小类为单位，该小类下设备维保内容全部取自此模板；未配置的小类不生成对应维保单</span>
+      <span class="text-xs text-[#909399]">「同步全年 / 同步明年」扫描全部已配置小类自动补齐空月，无需先筛选；取标准仍按计划月精确匹配</span>
     </div>
 
     <div class="flex flex-1 min-h-0">
@@ -410,27 +492,15 @@ onMounted(async () => {
                   {{ m.configured ? '已配置 v' + m.version : '未配置' }}
                 </el-tag>
                 <div class="flex-1" />
-                <!-- 02-06：按月模式=添加月份；全年执行未配置=上传标准；全年执行已配置=置灰 -->
-                <el-tooltip v-if="m.code !== '01'" :content="addMonthDisabledTip(m)" placement="top" :disabled="!addMonthDisabled(m)">
-                  <span>
-                    <el-button
-                      size="small"
-                      :type="addMonthDisabled(m) ? 'info' : 'primary'"
-                      plain
-                      :disabled="addMonthDisabled(m)"
-                      :class="{ 'yr-add-disabled': addMonthDisabled(m) }"
-                      @click="onHeaderAction(m)"
-                    >{{ yearRoundExecution && !moduleConfigured(m) ? '上传标准' : '＋ 添加月份' }}</el-button>
-                  </span>
-                </el-tooltip>
+                <!-- 02-06：添加月份 -->
+                <el-button v-if="m.code !== '01'" size="small" type="primary" plain @click="onHeaderAction(m)">＋ 添加月份</el-button>
               </div>
 
               <!-- 记录区：01 单记录（month=null）；02-06 月份记录列表 -->
               <div class="p-3">
                 <div v-if="!m.records || !m.records.length" class="text-xs text-[#c0c4cc]">
                   <template v-if="m.code === '01'">未配置安全操作规程，请上传 Excel。</template>
-                  <template v-else-if="yearRoundExecution">未配置标准文件；点击「上传标准」上传一次即可全年自动沿用，无需每月添加。</template>
-                  <template v-else>未配置任何月份；点击「＋ 添加月份」配置本月（或未来月），执行期 = 所选自然月整月。</template>
+                  <template v-else>未配置任何月份；点击「＋ 添加月份」配置本月（或未来月）。配好后可用顶部「同步全年」把已配置小类空月补齐到 12 月。</template>
                 </div>
                 <div v-else class="border border-[#e4e7ed] rounded">
                   <div
@@ -463,34 +533,62 @@ onMounted(async () => {
 
           <div class="text-xs text-[#909399] mt-3 leading-5">
             固定 6 类模板（不可新增/删除）：01 安全操作规程 / 02 点检保养标准（<b class="text-[#606266]">班前模板上传</b>；班后为固定表单）/ 03 一级保养标准 / 04 二级保养标准 / 05 设备润滑标准 / 06 定期检查标准。
-            <template v-if="yearRoundExecution">
-              当前为<b class="text-[#67c23a]">全年执行</b>：02-06 上传一次标准即可，各月初自动沿用；已上传模块「添加月份」置灰；未上传可点「上传标准」。更新内容请用「上传替换」。
-            </template>
-            <template v-else>
-              <b class="text-[#606266]">按月执行</b>：02-06 每月一份标准，执行期=自然月整月；过去月/已生成计划，或本月且该模块已配置过 → 锁定；从未配置过的模块本月可选，也可添加未来月。可在筛选栏「设置标准文件」开启全年执行。
-            </template>
+            <b class="text-[#606266]">按月取标准</b>：计划月无记录即提示未配置。
+            <b class="text-[#606266]">同步全年</b>：无需筛选，扫描全部已配置小类，按各模块源月把空月复制到今年 12 月；
+            <b class="text-[#606266]">同步明年</b>：扫描全部小类，用今年 12 月复制到明年 1–12。均不覆盖已有月。
           </div>
         </template>
       </div>
     </div>
 
-    <!-- 设置标准文件：全年执行开关 -->
-    <el-dialog v-model="settingsDialogVisible" title="设置标准文件" width="480px" :close-on-click-modal="false">
-      <div class="space-y-4">
-        <div class="text-sm text-[#606266] font-medium">标准文件执行周期</div>
-        <div class="flex items-center justify-between gap-4 px-3 py-3 rounded border border-[#e4e7ed] bg-[#fafafa]">
-          <div class="min-w-0">
-            <div class="text-sm text-[#303133]">是否开启全年执行</div>
-            <div class="text-xs text-[#909399] mt-1 leading-5">
-              开启后：只要某小类模块上传过标准文件，「添加月份」将置灰不可点；未上传的仍可上传，上传完成后同样置灰。各月初对应维保项目自动按已上传标准执行，无需反复按月上传。
-            </div>
-          </div>
-          <el-switch v-model="settingsDraft" />
+    <!-- 同步全年 / 同步明年：表格预览（每页 20 条） -->
+    <el-dialog
+      v-model="syncDialogVisible"
+      :title="syncPreview?.mode === 'nextYear' ? '同步明年' : '同步全年'"
+      width="960px"
+      :close-on-click-modal="false"
+    >
+      <el-table :data="syncTablePageRows" border size="small" max-height="420" class="w-full sync-preview-table">
+        <el-table-column prop="typeName" label="小类名称" min-width="120" fixed show-overflow-tooltip />
+        <el-table-column
+          v-for="col in [
+            { key: 'm02', label: '点检保养标准' },
+            { key: 'm03', label: '一级保养标准' },
+            { key: 'm04', label: '二级保养标准' },
+            { key: 'm05', label: '设备润滑标准' },
+            { key: 'm06', label: '定期检查标准' },
+          ]"
+          :key="col.key"
+          :label="col.label"
+          min-width="150"
+        >
+          <template #default="{ row }">
+            <el-tag v-if="row[col.key]?.status === 'ok'" type="success" size="small" effect="light">{{ row[col.key].text }}</el-tag>
+            <span v-else-if="row[col.key]?.status === 'missing'" class="sync-cell-missing">{{ row[col.key].text }}</span>
+            <span v-else class="text-[#606266]">{{ row[col.key]?.text || '—' }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="flex items-center justify-between mt-3 gap-3 flex-wrap">
+        <div class="text-xs text-[#606266] leading-5">
+          共将新增 <b>{{ syncPreview?.totalWouldWrite || 0 }}</b> 条（齐套小类 {{ syncPreview?.readyTypeCount || 0 }} / {{ syncTableRows.length }}）。
+          须列表中每个小类的五个标准全部配齐后才可确认同步
+          <template v-if="syncPreview?.mode === 'nextYear'">（明年：须各有今年 12 月）</template>
+          <template v-else>（全年：须各有可用源月）</template>。
+          <span v-if="!syncAllRowsReady" class="text-[#f56c6c]">当前有未齐套小类，确定已禁用。</span>
         </div>
+        <el-pagination
+          v-model:current-page="syncPage"
+          :page-size="syncPageSize"
+          :total="syncTableRows.length"
+          layout="total, prev, pager, next"
+          small
+          background
+        />
       </div>
       <template #footer>
-        <el-button size="small" @click="settingsDialogVisible = false">取消</el-button>
-        <el-button size="small" type="primary" :loading="settingsSaving" @click="confirmSettings">保存</el-button>
+        <el-button size="small" @click="syncDialogVisible = false">取消</el-button>
+        <el-button size="small" type="primary" :loading="syncConfirming" :disabled="!syncCanConfirm" @click="confirmSyncDialog">确定</el-button>
       </template>
     </el-dialog>
 
@@ -504,12 +602,7 @@ onMounted(async () => {
           考核题库：工作表里要有「单选题库」「多选题库」「填空题库」「问答题库」，上传后出现在考试配置。安全操作规程正文仍用「序号 / 条款」。
         </div>
         <div v-else-if="uploadMonth" class="text-xs text-[#606266]">
-          <template v-if="yearRoundExecution">
-            全年执行模式：上传后各月自动沿用该标准（落档月份 <b class="font-mono">{{ uploadMonth }}</b>）
-          </template>
-          <template v-else>
-            目标月份：<b class="font-mono">{{ uploadMonth }}</b>　执行期 = {{ uploadMonth }} 整月（自动，无需选择）
-          </template>
+          目标月份：<b class="font-mono">{{ uploadMonth }}</b>　执行期 = {{ uploadMonth }} 整月（自动，无需选择）
         </div>
         <div class="flex items-center gap-3">
           <el-button size="small" @click="$refs.uploadInput?.click()">选择文件</el-button>
@@ -585,12 +678,19 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* 全年执行下已配置模块的「添加月份」更明显置灰 */
-.yr-add-disabled,
-.yr-add-disabled.is-disabled {
-  color: #c0c4cc !important;
-  background: #f5f7fa !important;
-  border-color: #e4e7ed !important;
-  cursor: not-allowed;
+.sync-cell-missing {
+  color: #f56c6c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.sync-year-badge {
+  vertical-align: middle;
+}
+.sync-year-badge :deep(.el-badge__content.is-dot) {
+  right: 6px;
+  top: 4px;
+}
+.sync-year-hint {
+  margin-left: 2px;
 }
 </style>

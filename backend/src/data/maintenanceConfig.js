@@ -202,35 +202,10 @@ function persistTemplateOverrides() {
   catch (e) { console.error('保存模板失败:', e.message); }
 }
 
-// ===================== 标准文件全局设置（全年执行） =====================
-// 开启后：已上传标准的小类模块不再按月反复「添加月份」；解析时当月无记录则回退最新已配置标准，
-// 各月初对应维保项目自动按该标准执行。
-const settingsStorePath = path.join(__dirname, '..', '..', '..', 'standardFileSettings.json');
-const standardFileSettings = { yearRoundExecution: false };
-function loadStandardFileSettings() {
-  try {
-    const saved = JSON.parse(fs.readFileSync(settingsStorePath, 'utf8'));
-    if (typeof saved.yearRoundExecution === 'boolean') {
-      standardFileSettings.yearRoundExecution = saved.yearRoundExecution;
-    }
-  } catch (_) { /* 首次无文件 */ }
-}
-function persistStandardFileSettings() {
-  try { fs.writeFileSync(settingsStorePath, JSON.stringify(standardFileSettings, null, 2)); }
-  catch (e) { console.error('保存标准文件设置失败:', e.message); }
-}
-function isYearRoundExecution() { return !!standardFileSettings.yearRoundExecution; }
-function getStandardFileSettings() {
-  return { yearRoundExecution: isYearRoundExecution() };
-}
-function setStandardFileSettings(patch) {
-  if (patch && typeof patch.yearRoundExecution === 'boolean') {
-    standardFileSettings.yearRoundExecution = patch.yearRoundExecution;
-  }
-  persistStandardFileSettings();
-  return getStandardFileSettings();
-}
-loadStandardFileSettings();
+// ===================== 标准文件：同步全年 / 同步明年（显式落库，不做查询回退） =====================
+// 取标准仍严格按「小类+模块+计划月」；缺月即未配置。
+// 「同步全年」：以今年已有源月为模板，把源月之后到今年 12 月的空月复制落库。
+// 「同步明年」：以今年 12 月为源，复制到明年 1–12 空月。默认不覆盖已有内容月。
 // boot 补名：代码默认/持久化记录缺 name 时按 DEFAULT_MODULE_NAMES 填充（V1.57：逐条 records 记录）
 function ensureModuleNames() {
   Object.values(standardTemplates).forEach(files => {
@@ -334,16 +309,10 @@ function latestConfiguredMonthKey(typeCode, fileCode) {
 }
 // 月份/记录是否锁定（02-06）：该月已生成计划、过去月 → 锁定；当前月 → 该模块已配置过才锁定；01 豁免
 // V1.57b：当前月不再恒锁——该模块从未配置过任何月份文件时本月可选（首次配置当月）
-// 全年执行：允许改「最新已配置」那一条（全年底稿，可上传替换/微调）；其余月份只读；已排期仍锁
 function isMonthLocked(typeCode, fileCode, month, plansExist) {
   if (!PERIOD_LOCK_FILE_CODES.includes(fileCode)) return false; // 01 豁免
   if (plansExist) return true; // 该月已生成计划 → 锁定（即使未来月也已排期）
   if (!month || month === NON_MONTH_KEY || !/^\d{4}-\d{2}$/.test(month)) return false;
-  if (isYearRoundExecution()) {
-    const latestKey = latestConfiguredMonthKey(typeCode, fileCode);
-    if (!latestKey || month === latestKey) return false; // 底稿可改；尚无配置也可写
-    return true; // 非最新月只读
-  }
   if (month < currentMonth()) return true; // 过去月已执行
   if (month === currentMonth()) return moduleHasAnyRecord(typeCode, fileCode); // 本月：从未配置 → 可选
   return false;
@@ -401,14 +370,188 @@ function copyTemplateRecord(typeCode, fileCode, fromM, toM) {
   const { version, updatedAt, ...rest } = src;
   return setTemplateRecord(typeCode, fileCode, toM, { ...rest, version: 1 });
 }
-// 某年是否有该模板内容记录（生成门禁：planGrid/级别解析按年判断）
-// 全年执行开启时：任意月份已配置即视为全年可用
+// 某年是否有该模板内容记录（生成门禁：planGrid/级别解析按年判断）——严格按年，不跨年回退
 function hasRecordInYear(typeCode, fileCode, year) {
-  if (isYearRoundExecution() && moduleHasAnyRecord(typeCode, fileCode)) return true;
   const b = templateBucket(typeCode, fileCode);
   if (!b) return false;
   const prefix = String(year) + '-';
   return Object.keys(b.records).some(k => k !== NON_MONTH_KEY && k.startsWith(prefix) && hasTemplateContent(b.records[k]));
+}
+
+// —— 同步全年 / 同步明年 ——
+function yearMonthList(year) {
+  const y = String(year);
+  const out = [];
+  for (let m = 1; m <= 12; m++) out.push(y + '-' + String(m).padStart(2, '0'));
+  return out;
+}
+function nextMonthAfter(m) {
+  if (!/^\d{4}-\d{2}$/.test(m || '')) return null;
+  const y = parseInt(m.substring(0, 4), 10);
+  const mm = parseInt(m.substring(5, 7), 10);
+  if (mm === 12) return (y + 1) + '-01';
+  return m.substring(0, 5) + String(mm + 1).padStart(2, '0');
+}
+/** 同步全年：源月 = 今年内已配置有内容的最大月（含未来月，如已配 11 月则可用其补 12 月）；目标 = 源月之后～今年12月的空月 */
+function findSyncYearSourceMonth(typeCode, fileCode, year, _curMonth) {
+  const prefix = String(year) + '-';
+  const yearEnd = prefix + '12';
+  const b = templateBucket(typeCode, fileCode);
+  if (!b) return null;
+  const keys = Object.keys(b.records)
+    .filter(k => k.startsWith(prefix) && k <= yearEnd && hasTemplateContent(b.records[k]))
+    .sort();
+  return keys.length ? keys[keys.length - 1] : null;
+}
+/**
+ * 预览/执行：单个小类的同步全年 / 同步明年。
+ * @param {'year'|'nextYear'} mode
+ * @param {boolean} dryRun
+ */
+function syncOneTypeCode(typeCode, mode, dryRun) {
+  typeCode = (typeCode || '').padStart(6, '0');
+  if (!/^\d{6}$/.test(typeCode)) throw new Error('typeCode 须为 6 位小类编码');
+
+  const cur = currentMonth();
+  const thisYear = parseInt(cur.substring(0, 4), 10);
+  const targetYear = mode === 'year' ? thisYear : thisYear + 1;
+  const modules = [];
+  let totalWouldWrite = 0;
+  let totalWritten = 0;
+  let hasAnySource = false;
+
+  // 同步全年 / 同步明年：五个按月模块（02-06）源标准必须全部配齐，才允许该小类一次性同步
+  // 全年：各模块今年须有可用源月；明年：各模块须有今年 12 月
+  const moduleSources = {};
+  PERIOD_LOCK_FILE_CODES.forEach(fc => {
+    if (mode === 'year') {
+      moduleSources[fc] = findSyncYearSourceMonth(typeCode, fc, thisYear, cur);
+    } else {
+      const dec = String(thisYear) + '-12';
+      const src = getTemplateRecord(typeCode, fc, dec);
+      moduleSources[fc] = (src && hasTemplateContent(src)) ? dec : null;
+    }
+  });
+  const allFiveReady = PERIOD_LOCK_FILE_CODES.every(fc => !!moduleSources[fc]);
+
+  PERIOD_LOCK_FILE_CODES.forEach(fileCode => {
+    const name = DEFAULT_MODULE_NAMES[fileCode] || ('标准文件' + fileCode);
+    let sourceMonth = moduleSources[fileCode];
+    let targets = [];
+    let skipReason = '';
+    const hasSource = !!sourceMonth;
+
+    if (!hasSource) {
+      skipReason = mode === 'nextYear'
+        ? '12月没有记录，请配置再同步'
+        : '没有记录，请配置再同步';
+    } else {
+      hasAnySource = true;
+      if (!allFiveReady) {
+        skipReason = '须五个标准文件（02-06）全部配齐后才可一次性同步';
+      } else if (mode === 'year') {
+        let m = nextMonthAfter(sourceMonth);
+        while (m && m.startsWith(String(thisYear) + '-') && m <= (thisYear + '-12')) {
+          targets.push(m);
+          m = nextMonthAfter(m);
+        }
+      } else {
+        targets = yearMonthList(targetYear);
+      }
+    }
+
+    const willWrite = [];
+    const skippedExisting = [];
+    if (sourceMonth && targets.length) {
+      targets.forEach(tm => {
+        const existing = getTemplateRecord(typeCode, fileCode, tm);
+        if (existing && hasTemplateContent(existing)) skippedExisting.push(tm);
+        else willWrite.push(tm);
+      });
+    }
+
+    if (!dryRun && sourceMonth && willWrite.length) {
+      willWrite.forEach(tm => {
+        const rec = copyTemplateRecord(typeCode, fileCode, sourceMonth, tm);
+        if (rec) totalWritten++;
+      });
+    }
+    totalWouldWrite += willWrite.length;
+
+    modules.push({
+      fileCode,
+      name,
+      sourceMonth,
+      hasSource,
+      hasDecember: mode === 'nextYear' ? hasSource : undefined,
+      skipReason: skipReason || undefined,
+      willWrite,
+      skippedExisting,
+      written: dryRun ? 0 : willWrite.length,
+    });
+  });
+
+  return {
+    typeCode,
+    mode,
+    year: targetYear,
+    currentMonth: cur,
+    dryRun: !!dryRun,
+    hasAnySource,
+    allFiveReady,
+    allFiveDecemberReady: mode === 'nextYear' ? allFiveReady : undefined,
+    modules,
+    totalWouldWrite,
+    totalWritten: dryRun ? 0 : totalWritten,
+  };
+}
+
+/**
+ * 预览/执行同步全年或同步明年。
+ * typeCode 省略 / 空 / '*' → 扫描全部小类：只要该小类已有可作源的标准配置，就自动补齐；未配置的小类跳过。
+ * 传入具体 6 位小类 → 仅同步该小类（兼容）。
+ */
+function syncTemplateMonths(typeCode, mode, dryRun) {
+  if (mode !== 'year' && mode !== 'nextYear') throw new Error('mode 须为 year 或 nextYear');
+
+  const raw = (typeCode == null ? '' : String(typeCode)).trim();
+  const syncAll = !raw || raw === '*';
+
+  if (!syncAll) {
+    return syncOneTypeCode(raw, mode, dryRun);
+  }
+
+  const cur = currentMonth();
+  const thisYear = parseInt(cur.substring(0, 4), 10);
+  const targetYear = mode === 'year' ? thisYear : thisYear + 1;
+  const typeCodes = Object.keys(standardTemplates).filter(tc => /^\d{6}$/.test(tc)).sort();
+  const items = [];
+  let totalWouldWrite = 0;
+  let totalWritten = 0;
+
+  typeCodes.forEach(tc => {
+    const one = syncOneTypeCode(tc, mode, dryRun);
+    // 未配置任何可用源的小类直接跳过，不进入结果
+    if (!one.hasAnySource) return;
+    items.push(one);
+    totalWouldWrite += one.totalWouldWrite;
+    totalWritten += one.totalWritten;
+  });
+
+  const readyTypeCount = items.filter(i => i.allFiveReady).length;
+
+  return {
+    scope: 'all',
+    mode,
+    year: targetYear,
+    currentMonth: cur,
+    dryRun: !!dryRun,
+    items,
+    typeCount: items.length,
+    readyTypeCount,
+    totalWouldWrite,
+    totalWritten: dryRun ? 0 : totalWritten,
+  };
 }
 // 该模块月份记录清单（前端列表）
 // 02-06 仅列出月份记录（空桶 '_' 播种跳过）；01 返回单记录（month=null）
@@ -563,32 +706,23 @@ function getDeviceByCode(code) {
 // 01-08 之外的编号可上传文件（rawRows）但维保生成不消费 → 天然"仅存储不生成"。
 function resolveTemplate(typeCode, fileCode, month) {
   typeCode = (typeCode || '').padStart(6, '0');
-  // V1.57：按月取记录——month 明确提供 → 精确该月（缺 → null，不回退，生成/报表按目标月判定）；
+  // V1.57：按月取记录——month 明确提供 → 精确该月（缺 → null，不回退）；
   //   month 缺省 → 最新一条（01 '_' 单记录；聚合/级别解析兜底）
-  // 全年执行：指定月无记录时回退最新已配置标准，避免每月反复上传
+  // 全年覆盖请用「同步全年 / 同步明年」显式落库，取数不做回退
   let tpl;
-  let usedFallback = false;
   if (month && month !== NON_MONTH_KEY) {
     tpl = getTemplateRecord(typeCode, fileCode, month);
-    if ((!tpl || !hasTemplateContent(tpl)) && isYearRoundExecution()) {
-      const latest = latestTemplateRecord(typeCode, fileCode);
-      if (latest && hasTemplateContent(latest)) {
-        tpl = latest;
-        usedFallback = true;
-      }
-    }
   } else {
     tpl = latestTemplateRecord(typeCode, fileCode);
   }
-  if (tpl && (tpl.status === 'active' || usedFallback) && hasTemplateContent(tpl)) {
+  if (tpl && tpl.status === 'active' && hasTemplateContent(tpl)) {
     return {
       content: tpl,
-      source: usedFallback ? '全年执行(回退最新)' : '自定义',
+      source: '自定义',
       sourceLevel: '小类',
       sourceKey: typeCode,
       templateId: typeCode + fileCode,
       templateVersion: tpl.version,
-      yearRoundFallback: usedFallback,
     };
   }
   return { content: null, source: '未配置', sourceLevel: null, sourceKey: null, templateId: null, templateVersion: 0 };
@@ -999,7 +1133,7 @@ module.exports = {
   hasTemplateContent, isTemplateEffective,
   persistTemplateOverrides, deleteTemplate, parseTemplateExcel,
   listTemplateModules, createTemplateModule, renameTemplateModule,
-  standardFileSettings, getStandardFileSettings, setStandardFileSettings, isYearRoundExecution,
+  syncTemplateMonths, syncOneTypeCode, findSyncYearSourceMonth, yearMonthList,
   getDeviceByCode, resolveTemplate, resolveAssetClass, resolveDeviceProjects,
   resolveRoleBindings, resolveStepPermissions, getDeviceConfig,
   isPilotDeviceCode, isPilotDevice, isHoliday, nextWorkday, isCheckDay, computeSchedule,

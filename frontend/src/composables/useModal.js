@@ -2,10 +2,12 @@ import { ElMessageBox } from 'element-plus'
 
 export function useModal() {
   function confirm(message, options = {}) {
-    return ElMessageBox.confirm(message, options.title || '提示', {
-      confirmButtonText: options.confirmText || '确定',
-      cancelButtonText: options.cancelText || '取消',
-      type: options.type || 'warning'
+    const { title, confirmText, cancelText, type, ...rest } = options
+    return ElMessageBox.confirm(message, title || '提示', {
+      confirmButtonText: confirmText || '确定',
+      cancelButtonText: cancelText || '取消',
+      type: type || 'warning',
+      ...rest,
     })
   }
 

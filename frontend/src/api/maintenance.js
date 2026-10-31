@@ -147,12 +147,10 @@ export function copyTemplateRecord(typeCode, fileCode, fromMonth, toMonth) {
 export function fetchTemplateModules(typeCode) {
   return client.get('/maintenance/templates/modules', { params: { typeCode } })
 }
-// 标准文件全局设置（全年执行开关）
-export function fetchTemplateSettings() {
-  return client.get('/maintenance/templates/settings')
-}
-export function saveTemplateSettings(data) {
-  return client.put('/maintenance/templates/settings', data)
+// 标准文件同步全年 / 同步明年（dryRun=true 仅预览）
+// mode: 'year' | 'nextYear'；不传 typeCode 则扫描全部已配置小类
+export function syncTemplateMonths({ typeCode, mode, dryRun = false } = {}) {
+  return client.post('/maintenance/templates/sync', { typeCode, mode, dryRun })
 }
 export function createTemplateModule(data) {
   return client.post('/maintenance/templates/modules', data)
