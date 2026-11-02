@@ -158,13 +158,25 @@ function typeNameOf(typeCode) {
   return found || typeCode
 }
 
-/** @returns {{ status: 'ok'|'missing', text: string }} */
-function moduleWriteCell(modules, fileCode, mode) {
+/**
+ * 有源且该模块仍有空月可写 → 可同步
+ * 有源且齐套后目标月已全部存在（无可写）→ 已同步
+ * 无源 → 红字提示
+ * @returns {{ status: 'ok'|'done'|'missing', text: string }}
+ */
+function moduleWriteCell(modules, fileCode, mode, allFiveReady) {
   const m = (modules || []).find(x => x.fileCode === fileCode)
   const ready = !!(m?.hasSource || m?.hasDecember || m?.sourceMonth)
-  if (ready) return { status: 'ok', text: '可同步' }
-  if (mode === 'nextYear') return { status: 'missing', text: '12月没有记录，请配置再同步' }
-  return { status: 'missing', text: '没有记录，请配置再同步' }
+  if (!ready) {
+    if (mode === 'nextYear') return { status: 'missing', text: '12月没有记录，请配置再同步' }
+    return { status: 'missing', text: '没有记录，请配置再同步' }
+  }
+  const willWrite = m?.willWrite || []
+  // 五标准齐套且本模块没有待写入空月 → 视为已同步过
+  if (allFiveReady && willWrite.length === 0) {
+    return { status: 'done', text: '已同步' }
+  }
+  return { status: 'ok', text: '可同步' }
 }
 
 /** 同步预览表格行（全年/明年同一套状态展示） */
@@ -175,17 +187,20 @@ const syncTableRows = computed(() => {
   const mode = data.mode
   return items
     .filter(item => !!item.hasAnySource)
-    .map(item => ({
-      typeCode: item.typeCode,
-      typeName: typeNameOf(item.typeCode),
-      totalWouldWrite: item.totalWouldWrite,
-      allFiveReady: !!item.allFiveReady,
-      m02: moduleWriteCell(item.modules, '02', mode),
-      m03: moduleWriteCell(item.modules, '03', mode),
-      m04: moduleWriteCell(item.modules, '04', mode),
-      m05: moduleWriteCell(item.modules, '05', mode),
-      m06: moduleWriteCell(item.modules, '06', mode),
-    }))
+    .map(item => {
+      const allFiveReady = !!item.allFiveReady
+      return {
+        typeCode: item.typeCode,
+        typeName: typeNameOf(item.typeCode),
+        totalWouldWrite: item.totalWouldWrite,
+        allFiveReady,
+        m02: moduleWriteCell(item.modules, '02', mode, allFiveReady),
+        m03: moduleWriteCell(item.modules, '03', mode, allFiveReady),
+        m04: moduleWriteCell(item.modules, '04', mode, allFiveReady),
+        m05: moduleWriteCell(item.modules, '05', mode, allFiveReady),
+        m06: moduleWriteCell(item.modules, '06', mode, allFiveReady),
+      }
+    })
 })
 
 /** 列表中每个小类都必须五标准齐套，且有可写入条数，才可点确定（全年/明年同一规则） */
@@ -564,6 +579,7 @@ onMounted(async () => {
         >
           <template #default="{ row }">
             <el-tag v-if="row[col.key]?.status === 'ok'" type="success" size="small" effect="light">{{ row[col.key].text }}</el-tag>
+            <el-tag v-else-if="row[col.key]?.status === 'done'" type="info" size="small" effect="plain">{{ row[col.key].text }}</el-tag>
             <span v-else-if="row[col.key]?.status === 'missing'" class="sync-cell-missing">{{ row[col.key].text }}</span>
             <span v-else class="text-[#606266]">{{ row[col.key]?.text || '—' }}</span>
           </template>
